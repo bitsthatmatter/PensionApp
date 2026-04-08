@@ -75,6 +75,3 @@ export interface BudgetedCost {
   date: string
   endDate?: string
 }
-
-// Re-exported from domain layer for backward compatibility
-export type { MonthSnapshot, RetirementScenario } from '~/domain/retirement-projection'

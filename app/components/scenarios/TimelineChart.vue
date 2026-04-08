@@ -31,7 +31,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-import type { RetirementScenario } from '~/types/financial'
+import type { RetirementScenario } from '~/domain/retirement-projection'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
