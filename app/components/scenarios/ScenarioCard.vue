@@ -25,7 +25,8 @@
 </template>
 
 <script setup lang="ts">
-import type { RetirementScenario, Age } from '~/types/financial'
+import type { RetirementScenario } from '~/domain/retirement-projection'
+import type { Age } from '~/types/financial'
 
 const props = defineProps<{
   scenario: RetirementScenario
