@@ -76,18 +76,5 @@ export interface BudgetedCost {
   endDate?: string
 }
 
-export interface MonthSnapshot {
-  date: string
-  age: Age
-  totalIncome: number
-  totalExpenses: number
-  netCashflow: number
-  cumulativeSavings: number
-}
-
-export interface RetirementScenario {
-  id: string
-  label: string
-  retirementAge: Age
-  timeline: MonthSnapshot[]
-}
+// Re-exported from domain layer for backward compatibility
+export type { MonthSnapshot, RetirementScenario } from '~/domain/retirement-projection'

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Age, UserProfile } from '~/types/financial'
+import { ageAtDate as ageAtDateUtil } from '~/domain/age'
 
 const STORAGE_KEY = 'retirement-planner-profile'
 
@@ -29,16 +30,7 @@ export const useProfileStore = defineStore('profile', () => {
   }
 
   function ageAtDate(dob: string, date: string): Age {
-    const birth = new Date(dob)
-    const target = new Date(date)
-    let years = target.getFullYear() - birth.getFullYear()
-    let months = target.getMonth() - birth.getMonth()
-    if (target.getDate() < birth.getDate()) months--
-    if (months < 0) {
-      years--
-      months += 12
-    }
-    return { years, months }
+    return ageAtDateUtil(dob, date)
   }
 
   function dateAtAge(dob: string, age: Age): string {
