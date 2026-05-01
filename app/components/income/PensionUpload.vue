@@ -15,7 +15,7 @@
     <div class="space-y-4">
       <div class="flex items-center gap-3">
         <button
-          class="inline-flex items-center gap-3 rounded-lg bg-(--ui-primary) px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 active:opacity-80"
+          class="inline-flex items-center gap-3 rounded-full bg-(--ui-primary) px-5 py-2.5 text-sm font-semibold text-[#163300] transition-all hover:scale-105 active:scale-95"
           @click="($refs.fileInput as HTMLInputElement).click()"
         >
           <UIcon name="i-heroicons-arrow-up-tray" class="size-5" />

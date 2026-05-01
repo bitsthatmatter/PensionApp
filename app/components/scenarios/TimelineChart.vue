@@ -41,7 +41,7 @@ const props = defineProps<{
 
 const { formatCurrency } = useFormatting()
 
-const colors = ['#6366f1', '#ef4444', '#22c55e', '#a855f7']
+const colors = ['#9fe870', '#326318', '#ffd11a', '#d03238']
 
 const chartData = computed(() => {
   if (props.scenarios.length === 0) return { labels: [], datasets: [] }
@@ -79,7 +79,7 @@ const chartData = computed(() => {
   datasets.push({
     label: '€0 lijn',
     data: sampledIndices.map(() => 0),
-    borderColor: '#94a3b8',
+    borderColor: '#868685',
     backgroundColor: 'transparent',
     tension: 0,
     fill: false,
@@ -104,13 +104,13 @@ const chartOptions = computed(() => ({
       labels: {
         usePointStyle: true,
         pointStyle: 'line',
-        font: { family: 'system-ui, sans-serif', size: 12 },
+        font: { family: "'Inter', system-ui, sans-serif", size: 12 },
       },
     },
     tooltip: {
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      titleFont: { family: 'system-ui, sans-serif' },
-      bodyFont: { family: 'system-ui, sans-serif' },
+      backgroundColor: '#0e0f0c',
+      titleFont: { family: "'Inter', system-ui, sans-serif" },
+      bodyFont: { family: "'Inter', system-ui, sans-serif" },
       padding: 12,
       cornerRadius: 8,
       callbacks: {
@@ -124,16 +124,16 @@ const chartOptions = computed(() => ({
   },
   scales: {
     x: {
-      title: { display: true, text: 'Leeftijd', font: { family: 'system-ui, sans-serif' } },
+      title: { display: true, text: 'Leeftijd', font: { family: "'Inter', system-ui, sans-serif" } },
       grid: { display: false },
     },
     y: {
-      title: { display: true, text: 'Vermogen (€)', font: { family: 'system-ui, sans-serif' } },
+      title: { display: true, text: 'Vermogen (€)', font: { family: "'Inter', system-ui, sans-serif" } },
       ticks: {
         callback: (value: any) => formatCurrency(value),
-        font: { family: 'system-ui, sans-serif', size: 11 },
+        font: { family: "'Inter', system-ui, sans-serif", size: 11 },
       },
-      grid: { color: 'rgba(148, 163, 184, 0.1)' },
+      grid: { color: 'rgba(134, 134, 133, 0.1)' },
     },
   },
 }))

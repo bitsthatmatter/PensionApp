@@ -2,7 +2,7 @@
   <header class="sticky top-0 z-50 border-b border-(--ui-border) bg-(--ui-bg)/80 backdrop-blur-lg">
     <div class="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
       <NuxtLink to="/" class="flex items-center gap-2.5 font-bold text-lg tracking-tight text-(--ui-text-highlighted) mr-8">
-        <div class="flex size-8 items-center justify-center rounded-lg bg-(--ui-primary) text-white">
+        <div class="flex size-8 items-center justify-center rounded-lg bg-(--ui-primary) text-[#163300]">
           <UIcon name="i-heroicons-building-library" class="size-4" />
         </div>
         Pensioenplanner

@@ -5,7 +5,7 @@
       <div class="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--ui-primary)/8,transparent)]" />
       <div class="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div class="max-w-2xl">
-          <h1 class="text-3xl font-bold tracking-tight text-(--ui-text-highlighted) sm:text-4xl">
+          <h1 class="text-3xl font-black tracking-tight text-(--ui-text-highlighted) sm:text-4xl">
             Pensioenplanner
           </h1>
           <p class="mt-2 text-lg text-(--ui-text-muted)">

@@ -77,7 +77,7 @@
           <div
             class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors"
             :class="store.profile.hasPartner
-              ? 'border-(--ui-primary) bg-(--ui-primary) text-white'
+              ? 'border-(--ui-primary) bg-(--ui-primary) text-[#163300]'
               : 'border-(--ui-border-hover)'"
           >
             <UIcon v-if="store.profile.hasPartner" name="i-heroicons-check" class="size-3.5" />

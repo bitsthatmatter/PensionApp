@@ -24,5 +24,5 @@
 import { useScenarioStore } from '~/stores/scenarios'
 
 const scenarioStore = useScenarioStore()
-const colors = ['#6366f1', '#ef4444', '#22c55e', '#a855f7']
+const colors = ['#9fe870', '#326318', '#ffd11a', '#d03238']
 </script>
