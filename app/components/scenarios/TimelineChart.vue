@@ -131,7 +131,7 @@ const chartOptions = computed(() => ({
     y: {
       title: { display: true, text: 'Vermogen (€)', font: { family: 'system-ui, sans-serif' } },
       ticks: {
-        callback: ( value: number | string) => formatCurrency(value),
+        callback: (value: number | string) => typeof value === 'number' ? formatCurrency(value) : String(value),
         font: { family: 'system-ui, sans-serif', size: 11 },
       },
       grid: { color: 'rgba(148, 163, 184, 0.1)' },

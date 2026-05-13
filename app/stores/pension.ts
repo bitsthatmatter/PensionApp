@@ -28,12 +28,13 @@ function parsePensionJson(data: RawJson): PensionOverview {
   // Parse ouderdomspensioen periods from totals
   const ouderdomsPensioen: PensionPeriod[] = asArray(
     asRecord(totalen.OuderdomsPensioenTotalen).OuderdomsPensioenTotaal,
-  ).map((period) => {
-    const fromAge = parseAge(asRecord(period.Van).Leeftijd as { Jaren: number; Maanden: number } | undefined)!
+  ).flatMap((period) => {
+    const fromAge = parseAge(asRecord(period.Van).Leeftijd as { Jaren: number; Maanden: number } | undefined)
+    if (!fromAge) return []
     const toAge = parseAge(asRecord(period.Tot).Leeftijd as { Jaren: number; Maanden: number } | undefined)
     const toEvent = asRecord(period.Tot).OuderdomsPensioenEvent as string | undefined
 
-    return {
+    return [{
       fromAge,
       toAge,
       toEvent,
@@ -41,7 +42,7 @@ function parsePensionJson(data: RawJson): PensionOverview {
       indicatiefPensioen: period.IndicatiefPensioen as number | undefined,
       aowSamenwonend: period.AOWSamenwonend as number | undefined,
       aowAlleenstaand: period.AOWAlleenstaand as number | undefined,
-    }
+    }]
   })
 
   // Extract AOW amounts from the first period that has them
@@ -87,15 +88,17 @@ function parsePensionJson(data: RawJson): PensionOverview {
     const fromEvent = asRecord(period.Van).PartnerEvent as string | undefined
     const toAge = parseAge(asRecord(period.Tot).Leeftijd as { Jaren: number; Maanden: number } | undefined)
     const toEvent = asRecord(period.Tot).PartnerEvent as string | undefined
-    const pensioen = asRecord(period.Pensioen)
+    // period.Pensioen here is a nested object { VerzekerdBedrag, OpgebouwdBedrag },
+    // distinct from the numeric period.Pensioen field in ouderdomspensioen periods.
+    const pensioenBedragen = asRecord(period.Pensioen)
 
     return {
       fromAge,
       fromEvent,
       toAge,
       toEvent,
-      verzekerdBedrag: (pensioen.VerzekerdBedrag as number) ?? 0,
-      opgebouwdBedrag: (pensioen.OpgebouwdBedrag as number) ?? 0,
+      verzekerdBedrag: (pensioenBedragen.VerzekerdBedrag as number) ?? 0,
+      opgebouwdBedrag: (pensioenBedragen.OpgebouwdBedrag as number) ?? 0,
     }
   })
 

@@ -22,6 +22,7 @@ export interface ProjectionInput {
   retirementAge: Age
   aowAge: Age
   hasPartner: boolean
+  /** Reserved for future partner-specific projection logic. Not used in the current cashflow model. */
   partnerDateOfBirth?: string
   streams: FinancialStream[]
   expenseStreams: FinancialStream[]
