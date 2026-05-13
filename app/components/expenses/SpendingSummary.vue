@@ -42,9 +42,9 @@
         <UCheckbox v-model="useManualBaseline" label="Handmatig maandelijks uitgavenbedrag instellen" />
         <UInput
           v-if="useManualBaseline"
+          v-model.number="manualBaseline"
           type="number"
           step="0.01"
-          v-model.number="manualBaseline"
           icon="i-heroicons-currency-euro"
           class="w-36"
         />

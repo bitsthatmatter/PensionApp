@@ -14,7 +14,6 @@ import {
   capitalToMonthlyBenefit,
   remainingLifeExpectancy,
   calculateAllScenarios,
-  calculateAnnuityResult,
   STANDARD_SCENARIOS,
   formatEurocents,
   euroToEurocents,
@@ -176,7 +175,9 @@ describe('calculateAllScenarios', () => {
     for (const r of results) {
       expect(r.annuityFactor).toBeGreaterThan(0)
       expect(r.monthlyBenefitEurocents).toBeGreaterThan(0)
-      expect(r.annualBenefitEurocents).toBe(r.monthlyBenefitEurocents * 12)
+      // annualBenefit is computed first; monthlyBenefit = Math.round(annual / 12),
+      // so monthly * 12 may differ from annual by up to 11 eurocents.
+      expect(Math.abs(r.annualBenefitEurocents - r.monthlyBenefitEurocents * 12)).toBeLessThanOrEqual(11)
       expect(r.remainingLifeExpectancyYears).toBeGreaterThan(10)
     }
   })
@@ -198,8 +199,9 @@ describe('STANDARD_SCENARIOS', () => {
 // ---------------------------------------------------------------------------
 describe('formatEurocents', () => {
   it('formatteert correct naar euro-notatie', () => {
-    expect(formatEurocents(100_000)).toBe('€ 1.000')
-    expect(formatEurocents(1_234_500)).toBe('€ 12.345')
+    // Intl.NumberFormat uses a non-breaking space (U+00A0) between € and the number
+    expect(formatEurocents(100_000)).toBe('€\u00a01.000')
+    expect(formatEurocents(1_234_500)).toBe('€\u00a012.345')
   })
 })
 

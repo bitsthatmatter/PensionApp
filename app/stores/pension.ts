@@ -8,26 +8,39 @@ function parseAge(obj: { Jaren: number; Maanden: number } | undefined): Age | un
   return { years: obj.Jaren, months: obj.Maanden }
 }
 
-function parsePensionJson(data: any): PensionOverview {
-  const totalen = data.Totalen
-  const details = data.Details
+// Minimal shape of the raw MijnPensioenoverzicht JSON — only the fields we access.
+// Full schema: see AGENTS.md § Data formats › MijnPensioenoverzicht JSON.
+type RawPeriod = Record<string, unknown>
+type RawJson = { Totalen?: Record<string, unknown>; Details?: Record<string, unknown> }
+
+function asArray(val: unknown): RawPeriod[] {
+  return Array.isArray(val) ? (val as RawPeriod[]) : []
+}
+
+function asRecord(val: unknown): RawPeriod {
+  return (val != null && typeof val === 'object' ? val : {}) as RawPeriod
+}
+
+function parsePensionJson(data: RawJson): PensionOverview {
+  const totalen = asRecord(data.Totalen)
+  const details = asRecord(data.Details)
 
   // Parse ouderdomspensioen periods from totals
-  const ouderdomsPensioen: PensionPeriod[] = (
-    totalen?.OuderdomsPensioenTotalen?.OuderdomsPensioenTotaal ?? []
-  ).map((period: any) => {
-    const fromAge = parseAge(period.Van?.Leeftijd)!
-    const toAge = parseAge(period.Tot?.Leeftijd)
-    const toEvent = period.Tot?.OuderdomsPensioenEvent as string | undefined
+  const ouderdomsPensioen: PensionPeriod[] = asArray(
+    asRecord(totalen.OuderdomsPensioenTotalen).OuderdomsPensioenTotaal,
+  ).map((period) => {
+    const fromAge = parseAge(asRecord(period.Van).Leeftijd as { Jaren: number; Maanden: number } | undefined)!
+    const toAge = parseAge(asRecord(period.Tot).Leeftijd as { Jaren: number; Maanden: number } | undefined)
+    const toEvent = asRecord(period.Tot).OuderdomsPensioenEvent as string | undefined
 
     return {
       fromAge,
       toAge,
       toEvent,
-      pension: period.Pensioen ?? 0,
-      indicatiefPensioen: period.IndicatiefPensioen,
-      aowSamenwonend: period.AOWSamenwonend,
-      aowAlleenstaand: period.AOWAlleenstaand,
+      pension: (period.Pensioen as number) ?? 0,
+      indicatiefPensioen: period.IndicatiefPensioen as number | undefined,
+      aowSamenwonend: period.AOWSamenwonend as number | undefined,
+      aowAlleenstaand: period.AOWAlleenstaand as number | undefined,
     }
   })
 
@@ -40,20 +53,20 @@ function parsePensionJson(data: any): PensionOverview {
 
   // Extract individual providers from details
   const providers: PensionProvider[] = []
-  const detailPeriods = details?.OuderdomsPensioenDetails?.OuderdomsPensioen ?? []
+  const detailPeriods = asArray(asRecord(details.OuderdomsPensioenDetails).OuderdomsPensioen)
 
   for (const period of detailPeriods) {
-    const fromAge = parseAge(period.Van?.Leeftijd)
+    const fromAge = parseAge(asRecord(period.Van).Leeftijd as { Jaren: number; Maanden: number } | undefined)
     if (!fromAge) continue
 
-    const pensionItems = [
-      ...(period.Pensioen ?? []),
-      ...(period.IndicatiefPensioen ?? []),
+    const pensionItems: RawPeriod[] = [
+      ...asArray(period.Pensioen),
+      ...asArray(period.IndicatiefPensioen),
     ]
 
     for (const item of pensionItems) {
-      const name = item.PensioenUitvoerder
-      const amount = item.TeBereiken ?? item.Opgebouwd ?? 0
+      const name = item.PensioenUitvoerder as string | undefined
+      const amount = (item.TeBereiken ?? item.Opgebouwd ?? 0) as number
       if (!name || amount === 0) continue
 
       // Only add if we haven't seen this provider at this age
@@ -67,22 +80,22 @@ function parsePensionJson(data: any): PensionOverview {
   }
 
   // Parse partner pension
-  const partnerPensioen: PartnerPensionPeriod[] = (
-    totalen?.PartnerPensioenTotalen?.PartnerPensioenTotaal ?? []
-  ).map((period: any) => {
-    const fromAge = parseAge(period.Van?.Leeftijd)
-    const fromEvent = period.Van?.PartnerEvent as string | undefined
-    const toAge = parseAge(period.Tot?.Leeftijd)
-    const toEvent = period.Tot?.PartnerEvent as string | undefined
-    const pensioen = period.Pensioen ?? {}
+  const partnerPensioen: PartnerPensionPeriod[] = asArray(
+    asRecord(totalen.PartnerPensioenTotalen).PartnerPensioenTotaal,
+  ).map((period) => {
+    const fromAge = parseAge(asRecord(period.Van).Leeftijd as { Jaren: number; Maanden: number } | undefined)
+    const fromEvent = asRecord(period.Van).PartnerEvent as string | undefined
+    const toAge = parseAge(asRecord(period.Tot).Leeftijd as { Jaren: number; Maanden: number } | undefined)
+    const toEvent = asRecord(period.Tot).PartnerEvent as string | undefined
+    const pensioen = asRecord(period.Pensioen)
 
     return {
       fromAge,
       fromEvent,
       toAge,
       toEvent,
-      verzekerdBedrag: pensioen.VerzekerdBedrag ?? 0,
-      opgebouwdBedrag: pensioen.OpgebouwdBedrag ?? 0,
+      verzekerdBedrag: (pensioen.VerzekerdBedrag as number) ?? 0,
+      opgebouwdBedrag: (pensioen.OpgebouwdBedrag as number) ?? 0,
     }
   })
 
@@ -98,7 +111,7 @@ export const usePensionStore = defineStore('pension', () => {
     if (import.meta.server) return
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      try { pensionData.value = JSON.parse(saved) } catch {}
+      try { pensionData.value = JSON.parse(saved) } catch { /* ignore corrupt data */ }
     }
   }
 
@@ -117,7 +130,7 @@ export const usePensionStore = defineStore('pension', () => {
 
     try {
       const text = await file.text()
-      const json = JSON.parse(text)
+      const json = JSON.parse(text) as RawJson & { StatusCode?: string }
 
       if (json.StatusCode !== '000') {
         throw new Error(`Pension data has error status: ${json.StatusCode}`)

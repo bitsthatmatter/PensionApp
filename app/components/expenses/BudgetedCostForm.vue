@@ -11,13 +11,13 @@
           </div>
         </template>
 
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <form class="space-y-4" @submit.prevent="handleSubmit">
           <UFormField label="Omschrijving">
             <UInput v-model="form.label" placeholder="bijv. Auto kopen, Vakantie" required />
           </UFormField>
 
           <UFormField label="Bedrag (€)">
-            <UInput type="number" step="0.01" min="0" v-model.number="form.amount" icon="i-heroicons-currency-euro" required />
+            <UInput v-model.number="form.amount" type="number" step="0.01" min="0" icon="i-heroicons-currency-euro" required />
           </UFormField>
 
           <UFormField label="Herhaling">
@@ -26,10 +26,10 @@
 
           <div class="grid grid-cols-2 gap-4">
             <UFormField :label="form.recurring === 'once' ? 'Datum' : 'Startdatum'">
-              <UInput type="date" v-model="form.date" required />
+              <UInput v-model="form.date" type="date" required />
             </UFormField>
             <UFormField v-if="form.recurring !== 'once'" label="Einddatum (optioneel)">
-              <UInput type="date" v-model="form.endDate" />
+              <UInput v-model="form.endDate" type="date" />
             </UFormField>
           </div>
 

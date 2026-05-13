@@ -19,22 +19,22 @@
       <div class="flex items-center gap-2">
         <div class="flex items-center gap-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated)/50 px-3 py-2.5 focus-within:ring-2 focus-within:ring-(--ui-primary)/30 focus-within:border-(--ui-primary) transition-all">
           <input
+            v-model.number="store.profile.aowAge.years"
             type="number"
             :min="60"
             :max="75"
-            v-model.number="store.profile.aowAge.years"
             class="w-12 bg-transparent text-sm text-(--ui-text-highlighted) outline-none text-center font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
+          >
           <span class="text-xs font-medium text-(--ui-text-muted) shrink-0 uppercase tracking-wide">jaar</span>
         </div>
         <div class="flex items-center gap-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated)/50 px-3 py-2.5 focus-within:ring-2 focus-within:ring-(--ui-primary)/30 focus-within:border-(--ui-primary) transition-all">
           <input
+            v-model.number="store.profile.aowAge.months"
             type="number"
             :min="0"
             :max="11"
-            v-model.number="store.profile.aowAge.months"
             class="w-8 bg-transparent text-sm text-(--ui-text-highlighted) outline-none text-center font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
+          >
           <span class="text-xs font-medium text-(--ui-text-muted) shrink-0 uppercase tracking-wide">mnd</span>
         </div>
       </div>

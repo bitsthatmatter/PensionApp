@@ -108,6 +108,27 @@ describe('projectRetirementTimeline', () => {
     expect(afterAow!.totalIncome).toBe(1500)
   })
 
+  it('uses samenwonend AOW rate when hasPartner, without double-adding', () => {
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 65, months: 0 },
+      aowAge: { years: 67, months: 3 },
+      endAge: 68,
+      hasPartner: true,
+      partnerDateOfBirth: '1992-01-01',
+      pensionData: {
+        providers: [],
+        aow: { samenwonend: 12000, alleenstaand: 18000 },
+        ouderdomsPensioen: [],
+        partnerPensioen: [],
+      },
+    }))
+
+    // After primary person's AOW age: only samenwonend / 12 = 1000/month (no double-add)
+    const afterAow = timeline.find(s => s.age.years === 67 && s.age.months === 6)
+    expect(afterAow).toBeDefined()
+    expect(afterAow!.totalIncome).toBe(1000)
+  })
+
   it('applies baseline expenses throughout timeline', () => {
     const timeline = projectRetirementTimeline(makeInput({
       endAge: 40,

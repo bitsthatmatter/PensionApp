@@ -1,0 +1,8 @@
+services:
+  dev:
+    name: Dev server
+    description: Nuxt development server
+    commands:
+      start: pnpm dev
+    ready:
+      port: 3000
