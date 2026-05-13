@@ -27,7 +27,7 @@
           accept=".json"
           class="hidden"
           @change="handleUpload"
-        />
+        >
         <span v-if="store.isLoading" class="text-sm text-(--ui-text-muted)">Bezig met verwerken...</span>
       </div>
 

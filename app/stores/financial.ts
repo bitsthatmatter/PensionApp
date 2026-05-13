@@ -12,11 +12,11 @@ export const useFinancialStore = defineStore('financial', () => {
     if (import.meta.server) return
     const savedStreams = localStorage.getItem(STREAMS_KEY)
     if (savedStreams) {
-      try { streams.value = JSON.parse(savedStreams) } catch {}
+      try { streams.value = JSON.parse(savedStreams) } catch { /* ignore corrupt data */ }
     }
     const savedCosts = localStorage.getItem(COSTS_KEY)
     if (savedCosts) {
-      try { budgetedCosts.value = JSON.parse(savedCosts) } catch {}
+      try { budgetedCosts.value = JSON.parse(savedCosts) } catch { /* ignore corrupt data */ }
     }
   }
 

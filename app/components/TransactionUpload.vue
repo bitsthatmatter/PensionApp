@@ -27,7 +27,7 @@
           accept=".xls,.xlsx"
           class="hidden"
           @change="handleFileUpload"
-        />
+        >
       </div>
 
       <p v-if="isLoading" class="flex items-center gap-2 text-sm text-(--ui-text-muted)">
