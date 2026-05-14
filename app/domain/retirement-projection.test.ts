@@ -1,6 +1,51 @@
 import { describe, it, expect } from 'vitest'
 import type { ProjectionInput } from './retirement-projection'
+import type { Pensioenoverzicht } from '~/types/pensioenoverzicht'
 import { projectRetirementTimeline } from './retirement-projection'
+
+/** Minimale Pensioenoverzicht fixture met ouderdomspensioen en AOW. */
+function makePensioenoverzicht(opts: {
+  pensionAnnual?: number
+  pensionFromAge?: { years: number; months: number }
+  aowSamenwonend?: number
+  aowAlleenstaand?: number
+}): Pensioenoverzicht {
+  const {
+    pensionAnnual = 0,
+    pensionFromAge = { years: 67, months: 0 },
+    aowSamenwonend = 0,
+    aowAlleenstaand = 0,
+  } = opts
+
+  return {
+    StatusCode: '000',
+    TijdstipAanmakenBericht: '2026-01-01T00:00:00',
+    Totalen: {
+      OuderdomsPensioenTotalen: {
+        OuderdomsPensioenTotaal: [
+          ...(pensionAnnual > 0 ? [{
+            Van: { Leeftijd: { Jaren: pensionFromAge.years, Maanden: pensionFromAge.months } },
+            Tot: { OuderdomsPensioenEvent: 'Overlijden' as const },
+            Pensioen: pensionAnnual,
+          }] : []),
+          ...(aowSamenwonend > 0 || aowAlleenstaand > 0 ? [{
+            Van: { Leeftijd: { Jaren: 67, Maanden: 3 } },
+            Tot: { OuderdomsPensioenEvent: 'Overlijden' as const },
+            AOWSamenwonend: aowSamenwonend,
+            AOWAlleenstaand: aowAlleenstaand,
+          }] : []),
+        ],
+      },
+      PartnerPensioenTotalen: { PartnerPensioenTotaal: [] },
+      WezenPensioenTotalen: { WezenPensioenTotaal: [] },
+    },
+    Details: {
+      OuderdomsPensioenDetails: { OuderdomsPensioen: [] },
+      PartnerPensioenDetails: { PartnerPensioen: [] },
+      WezenPensioenDetails: { WezenPensioen: [] },
+    },
+  }
+}
 
 function makeInput(overrides: Partial<ProjectionInput> = {}): ProjectionInput {
   return {
@@ -61,17 +106,7 @@ describe('projectRetirementTimeline', () => {
     const timeline = projectRetirementTimeline(makeInput({
       retirementAge: { years: 67, months: 0 },
       endAge: 68,
-      pensionData: {
-        providers: [],
-        aow: { samenwonend: 12000, alleenstaand: 18000 },
-        ouderdomsPensioen: [
-          {
-            fromAge: { years: 67, months: 0 },
-            pension: 24000,
-          },
-        ],
-        partnerPensioen: [],
-      },
+      pensionData: makePensioenoverzicht({ pensionAnnual: 24000, pensionFromAge: { years: 67, months: 0 } }),
     }))
 
     // Before retirement: no pension income
@@ -90,12 +125,7 @@ describe('projectRetirementTimeline', () => {
       aowAge: { years: 67, months: 3 },
       endAge: 68,
       hasPartner: false,
-      pensionData: {
-        providers: [],
-        aow: { samenwonend: 12000, alleenstaand: 18000 },
-        ouderdomsPensioen: [],
-        partnerPensioen: [],
-      },
+      pensionData: makePensioenoverzicht({ aowSamenwonend: 12000, aowAlleenstaand: 18000 }),
     }))
 
     // Before AOW age: no AOW
@@ -115,12 +145,7 @@ describe('projectRetirementTimeline', () => {
       endAge: 68,
       hasPartner: true,
       partnerDateOfBirth: '1992-01-01',
-      pensionData: {
-        providers: [],
-        aow: { samenwonend: 12000, alleenstaand: 18000 },
-        ouderdomsPensioen: [],
-        partnerPensioen: [],
-      },
+      pensionData: makePensioenoverzicht({ aowSamenwonend: 12000, aowAlleenstaand: 18000 }),
     }))
 
     // After primary person's AOW age: only samenwonend / 12 = 1000/month (no double-add)

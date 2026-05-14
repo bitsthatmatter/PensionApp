@@ -66,7 +66,29 @@
         </div>
       </div>
 
-      <!-- Row 2: Partner toggle -->
+      <!-- Row 2: Stats -->
+      <div v-if="profile.dateOfBirth" class="grid grid-cols-2 gap-4 border-t border-(--ui-border) pt-5">
+        <div class="flex items-center gap-3 rounded-xl bg-(--ui-bg-elevated)/50 border border-(--ui-border) px-4 py-3">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--ui-primary)/10">
+            <UIcon name="i-heroicons-arrow-trending-up" class="size-5 text-(--ui-primary)" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Inkomstenbronnen</p>
+            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ financialStore.streams.length }}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl bg-(--ui-bg-elevated)/50 border border-(--ui-border) px-4 py-3">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--ui-primary)/10">
+            <UIcon name="i-heroicons-document-check" class="size-5 text-(--ui-primary)" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Pensioenoverzicht</p>
+            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.pensionData ? 'Geladen' : 'Niet geladen' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Partner toggle -->
       <div class="border-t border-(--ui-border) pt-5">
         <label
           class="flex items-start gap-4 rounded-lg border cursor-pointer px-4 py-3.5 transition-all"
@@ -90,27 +112,19 @@
         </label>
       </div>
 
-      <!-- Row 3: Partner details (conditional) -->
-      <div v-if="store.profile.hasPartner" class="space-y-2">
-        <label class="block text-sm font-semibold text-(--ui-text-highlighted)">
-          Geboortedatum partner
-        </label>
-        <div class="flex items-center gap-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated)/50 px-3 py-2.5 focus-within:ring-2 focus-within:ring-(--ui-primary)/30 focus-within:border-(--ui-primary) transition-all sm:max-w-xs">
-          <UIcon name="i-heroicons-heart" class="size-5 text-pink-500 shrink-0" />
-          <input
-            v-model="store.profile.partnerDateOfBirth"
-            type="date"
-            class="w-full bg-transparent text-sm text-(--ui-text-highlighted) outline-none placeholder:text-(--ui-text-dimmed)"
-          >
-        </div>
-      </div>
+
     </div>
   </UCard>
 </template>
 
 <script setup lang="ts">
 import { useProfileStore } from '~/stores/profile'
+import { useFinancialStore } from '~/stores/financial'
+import { usePensionStore } from '~/stores/pension'
 
 const store = useProfileStore()
+const { profile } = storeToRefs(store)
+const financialStore = useFinancialStore()
+const pensionStore = usePensionStore()
 const { formatAge, formatDate } = useFormatting()
 </script>

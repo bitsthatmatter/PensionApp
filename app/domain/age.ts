@@ -1,3 +1,4 @@
+import { Temporal } from 'temporal-polyfill'
 import type { Age } from '~/types/financial'
 
 export function ageToMonths(age: Age): number {
@@ -9,20 +10,12 @@ export function monthsToAge(totalMonths: number): Age {
 }
 
 export function addMonthsToDate(isoDate: string, months: number): string {
-  const d = new Date(isoDate)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
+  return Temporal.PlainDate.from(isoDate).add({ months }).toString()
 }
 
 export function ageAtDate(dob: string, date: string): Age {
-  const birth = new Date(dob)
-  const target = new Date(date)
-  let years = target.getFullYear() - birth.getFullYear()
-  let months = target.getMonth() - birth.getMonth()
-  if (target.getDate() < birth.getDate()) months--
-  if (months < 0) {
-    years--
-    months += 12
-  }
-  return { years, months }
+  const birth = Temporal.PlainDate.from(dob)
+  const target = Temporal.PlainDate.from(date)
+  const diff = birth.until(target, { largestUnit: 'years' })
+  return { years: diff.years, months: diff.months }
 }

@@ -1,3 +1,4 @@
+import { Temporal } from 'temporal-polyfill'
 import type { Age } from '~/types/financial'
 
 const currencyFormatter = new Intl.NumberFormat('nl-NL', {
@@ -5,11 +6,11 @@ const currencyFormatter = new Intl.NumberFormat('nl-NL', {
   currency: 'EUR',
 })
 
-const dateFormatter = new Intl.DateTimeFormat('nl-NL', {
+const dateFormatOptions: Intl.DateTimeFormatOptions = {
   year: 'numeric',
   month: 'short',
   day: 'numeric',
-})
+}
 
 export function useFormatting() {
   function formatCurrency(value: number): string {
@@ -17,7 +18,7 @@ export function useFormatting() {
   }
 
   function formatDate(isoDate: string): string {
-    return dateFormatter.format(new Date(isoDate))
+    return Temporal.PlainDate.from(isoDate).toLocaleString('nl-NL', dateFormatOptions)
   }
 
   function formatAge(age: Age): string {

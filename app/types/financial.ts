@@ -8,38 +8,7 @@ export interface UserProfile {
   hasPartner: boolean
   partnerDateOfBirth?: string
   aowAge: Age
-}
-
-export interface PensionPeriod {
-  fromAge: Age
-  toAge?: Age
-  toEvent?: string
-  pension: number
-  indicatiefPensioen?: number
-  aowSamenwonend?: number
-  aowAlleenstaand?: number
-}
-
-export interface PensionProvider {
-  name: string
-  annualAmount: number
-  startAge: Age
-}
-
-export interface PartnerPensionPeriod {
-  fromAge?: Age
-  fromEvent?: string
-  toAge?: Age
-  toEvent?: string
-  verzekerdBedrag: number
-  opgebouwdBedrag: number
-}
-
-export interface PensionOverview {
-  providers: PensionProvider[]
-  aow: { samenwonend: number; alleenstaand: number }
-  ouderdomsPensioen: PensionPeriod[]
-  partnerPensioen: PartnerPensionPeriod[]
+  partnerAowAge: Age
 }
 
 export type StreamType =

@@ -54,6 +54,8 @@
 </template>
 
 <script setup lang="ts">
+import { Temporal } from 'temporal-polyfill'
+
 const { transactions } = useTransactions()
 const { formatCurrency } = useFormatting()
 
@@ -63,9 +65,9 @@ const manualBaseline = ref(0)
 const monthsCovered = computed(() => {
   if (transactions.value.length === 0) return 0
   const dates = transactions.value.map(t => t.transactionDate).sort()
-  const first = new Date(dates[0])
-  const last = new Date(dates[dates.length - 1])
-  const months = (last.getFullYear() - first.getFullYear()) * 12 + last.getMonth() - first.getMonth()
+  const first = Temporal.PlainDate.from(dates[0])
+  const last = Temporal.PlainDate.from(dates[dates.length - 1])
+  const months = first.until(last, { largestUnit: 'months' }).months
   return Math.max(months, 1)
 })
 
