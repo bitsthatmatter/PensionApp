@@ -17,7 +17,7 @@
           </div>
         </template>
 
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <form class="space-y-4" @submit.prevent="handleSubmit">
           <UFormField label="Type">
             <USelect v-model="form.type" :items="typeOptions" />
           </UFormField>
@@ -27,19 +27,19 @@
           </UFormField>
 
           <UFormField label="Maandelijks bedrag (€)">
-            <UInput type="number" step="0.01" v-model.number="form.monthlyAmount" icon="i-heroicons-currency-euro" />
+            <UInput v-model.number="form.monthlyAmount" type="number" step="0.01" icon="i-heroicons-currency-euro" />
           </UFormField>
 
           <UFormField v-if="showLumpSum" label="Eenmalig bedrag (€)">
-            <UInput type="number" step="0.01" v-model.number="form.lumpSum" icon="i-heroicons-currency-euro" />
+            <UInput v-model.number="form.lumpSum" type="number" step="0.01" icon="i-heroicons-currency-euro" />
           </UFormField>
 
           <div class="grid grid-cols-2 gap-4">
             <UFormField label="Startdatum">
-              <UInput type="date" v-model="form.startDate" />
+              <UInput v-model="form.startDate" type="date" />
             </UFormField>
             <UFormField label="Einddatum">
-              <UInput type="date" v-model="form.endDate" />
+              <UInput v-model="form.endDate" type="date" />
             </UFormField>
           </div>
 

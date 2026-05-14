@@ -22,6 +22,7 @@ export interface ProjectionInput {
   retirementAge: Age
   aowAge: Age
   hasPartner: boolean
+  /** Reserved for future partner-specific projection logic. Not used in the current cashflow model. */
   partnerDateOfBirth?: string
   streams: FinancialStream[]
   expenseStreams: FinancialStream[]
@@ -36,7 +37,6 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     retirementAge,
     aowAge,
     hasPartner,
-    partnerDateOfBirth,
     streams,
     expenseStreams,
     budgetedCosts,
@@ -93,16 +93,11 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     }
 
     if (pensionData && ageMonth >= aowAgeMonths) {
+      // samenwonend is the per-person AOW rate for cohabitants; alleenstaand for singles.
+      // The partner's own AOW entitlement is not added here — this projection models
+      // the primary person's individual cashflow only.
       const aowAnnual = hasPartner ? pensionData.aow.samenwonend : pensionData.aow.alleenstaand
       totalIncome += aowAnnual / 12
-    }
-
-    if (hasPartner && partnerDateOfBirth && ageMonth >= aowAgeMonths) {
-      const partnerAge = ageAtDate(partnerDateOfBirth, date)
-      const partnerAgeMonths = ageToMonths(partnerAge)
-      if (partnerAgeMonths >= aowAgeMonths && pensionData) {
-        totalIncome += pensionData.aow.samenwonend / 12
-      }
     }
 
     for (const cost of budgetedCosts) {

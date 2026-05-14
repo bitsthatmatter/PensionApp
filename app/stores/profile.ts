@@ -20,7 +20,7 @@ export const useProfileStore = defineStore('profile', () => {
     if (saved) {
       try {
         Object.assign(profile.value, JSON.parse(saved))
-      } catch {}
+      } catch { /* ignore corrupt data */ }
     }
   }
 
