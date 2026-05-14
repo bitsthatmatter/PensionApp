@@ -5,7 +5,7 @@
       <div class="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--ui-primary)/8,transparent)]" />
       <div class="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div class="max-w-2xl">
-          <h1 class="text-3xl font-bold tracking-tight text-(--ui-text-highlighted) sm:text-4xl">Scenario's vergelijken</h1>
+          <h1 class="text-3xl font-black tracking-tight text-(--ui-text-highlighted) sm:text-4xl">Scenario's vergelijken</h1>
           <p class="mt-2 text-lg text-(--ui-text-muted)">Vergelijk verschillende pensioenleeftijden en ontdek wat het beste bij u past.</p>
         </div>
       </div>
@@ -21,14 +21,14 @@
 
       <div v-if="scenarioStore.scenarios.length > 1" class="flex gap-3">
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-500 transition-colors hover:bg-red-500/20"
+          class="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-500 transition-all hover:scale-105 active:scale-95"
           @click="scenarioStore.clearScenarios()"
         >
           <UIcon name="i-heroicons-trash" class="size-4" />
           Alle scenario's wissen
         </button>
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-(--ui-primary)/10 px-4 py-2.5 text-sm font-semibold text-(--ui-primary) transition-colors hover:bg-(--ui-primary)/20"
+          class="inline-flex items-center gap-2 rounded-full bg-(--ui-primary)/10 px-4 py-2.5 text-sm font-semibold text-(--ui-primary) transition-all hover:scale-105 active:scale-95"
           @click="scenarioStore.refreshScenarios()"
         >
           <UIcon name="i-heroicons-arrow-path" class="size-4" />
