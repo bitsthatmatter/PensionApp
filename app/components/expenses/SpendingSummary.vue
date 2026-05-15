@@ -55,9 +55,11 @@
 
 <script setup lang="ts">
 import { Temporal } from 'temporal-polyfill'
+import { useFinancialStore } from '~/stores/financial'
 
 const { transactions } = useTransactions()
 const { formatCurrency } = useFormatting()
+const financialStore = useFinancialStore()
 
 const useManualBaseline = ref(false)
 const manualBaseline = ref(0)
@@ -67,7 +69,8 @@ const monthsCovered = computed(() => {
   const dates = transactions.value.map(t => t.transactionDate).sort()
   const first = Temporal.PlainDate.from(dates[0])
   const last = Temporal.PlainDate.from(dates[dates.length - 1])
-  const months = first.until(last, { largestUnit: 'months' }).months
+  const dur = first.until(last, { largestUnit: 'months' })
+  const months = dur.years * 12 + dur.months
   return Math.max(months, 1)
 })
 
@@ -94,5 +97,13 @@ const effectiveMonthlyExpenses = computed(() => {
   return monthlyAvgExpenses.value
 })
 
-defineExpose({ effectiveMonthlyExpenses })
+// Keep the store in sync so the projection engine picks up the baseline.
+// Write null when there are no transactions (no override active).
+watch(
+  effectiveMonthlyExpenses,
+  (value) => {
+    financialStore.setMonthlyExpenseBaseline(transactions.value.length > 0 ? value : null)
+  },
+  { immediate: true },
+)
 </script>

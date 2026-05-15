@@ -33,6 +33,7 @@ import {
   type TooltipItem,
 } from 'chart.js'
 import type { RetirementScenario } from '~/domain/retirement-projection'
+import { ageToMonths } from '~/domain/age'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -47,27 +48,28 @@ const colors = ['#9fe870', '#326318', '#ffd11a', '#d03238']
 const chartData = computed(() => {
   if (props.scenarios.length === 0) return { labels: [], datasets: [] }
 
-  const longestTimeline = props.scenarios.reduce(
-    (a, b) => (a.timeline.length > b.timeline.length ? a : b)
-  ).timeline
-
-  const step = 12
-  const sampledIndices = Array.from(
-    { length: Math.ceil(longestTimeline.length / step) },
-    (_, i) => i * step
-  )
-
-  const labels = sampledIndices.map(i => {
-    const snap = longestTimeline[i]
-    return snap ? `${snap.age.years}` : ''
+  // Build a lookup map per scenario: totalMonths → totalIncome.
+  // This lets us query any scenario by age regardless of where its timeline starts.
+  const lookups = props.scenarios.map(scenario => {
+    const map = new Map<number, number>()
+    for (const snap of scenario.timeline) {
+      map.set(ageToMonths(snap.age), snap.totalIncome)
+    }
+    return map
   })
+
+  // Collect every age-in-months present in any timeline, then sample yearly (every 12 months).
+  const allMonths = new Set<number>()
+  for (const lookup of lookups) {
+    for (const m of lookup.keys()) allMonths.add(m)
+  }
+  const sampledMonths = Array.from(allMonths).sort((a, b) => a - b).filter(m => m % 12 === 0)
+
+  const labels = sampledMonths.map(m => `${Math.floor(m / 12)}`)
 
   const datasets = props.scenarios.map((scenario, idx) => ({
     label: scenario.label,
-    data: sampledIndices.map(i => {
-      const snap = scenario.timeline[i]
-      return snap ? snap.totalIncome : null
-    }),
+    data: sampledMonths.map(m => lookups[idx]!.get(m) ?? null),
     borderColor: colors[idx % colors.length],
     backgroundColor: colors[idx % colors.length] + '20',
     tension: 0.4,
@@ -76,8 +78,6 @@ const chartData = computed(() => {
     pointHitRadius: 8,
     borderWidth: 2.5,
   }))
-
-
 
   return { labels, datasets }
 })

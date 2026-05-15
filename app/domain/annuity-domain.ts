@@ -273,21 +273,4 @@ export function calculateAllScenarios(
   return results
 }
 
-// ---------------------------------------------------------------------------
-// 5. HULPFUNCTIES (eurocent ↔ euro display)
-// ---------------------------------------------------------------------------
 
-/** Eurocent → leesbaar euro-bedrag (bijv. 123456 → "€ 1.234,56") */
-export function formatEurocents(eurocents: number): string {
-  return new Intl.NumberFormat('nl-NL', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(eurocents / 100)
-}
-
-/** Euro-invoer → eurocent (bijv. 1234.56 → 123456) */
-export function euroToEurocents(euro: number): number {
-  return Math.round(euro * 100)
-}

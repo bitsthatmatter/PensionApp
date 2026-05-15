@@ -8,13 +8,13 @@
           </div>
           <h3 class="text-base font-semibold text-(--ui-text-highlighted)">Inkomstenbronnen</h3>
         </div>
-        <button
-          class="inline-flex items-center gap-2 rounded-full bg-(--ui-primary)/10 px-4 py-2 text-sm font-semibold text-(--ui-primary) transition-colors hover:bg-(--ui-primary)/20 active:bg-(--ui-primary)/25"
+        <UButton
+          color="primary"
+          variant="soft"
+          icon="i-heroicons-plus-circle"
+          label="Toevoegen"
           @click="showForm = true"
-        >
-          <UIcon name="i-heroicons-plus-circle" class="size-5" />
-          Toevoegen
-        </button>
+        />
       </div>
     </template>
 
@@ -59,6 +59,7 @@
 
     <IncomeStreamForm
       v-if="showForm"
+      :key="editingStream?.id ?? 'new'"
       v-model:open="showForm"
       :editing="editingStream"
       @save="handleSave"

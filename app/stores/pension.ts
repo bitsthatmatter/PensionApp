@@ -6,11 +6,34 @@ const PARTNER_STORAGE_KEY = 'retirement-planner-pension-partner'
 
 async function parseAndValidate(file: File): Promise<Pensioenoverzicht> {
   const text = await file.text()
-  const json = JSON.parse(text) as Pensioenoverzicht
-  if (json.StatusCode !== '000') {
-    throw new Error(`Pension data has error status: ${json.StatusCode}`)
+
+  let raw: unknown
+  try {
+    raw = JSON.parse(text)
+  } catch {
+    throw new Error('Het bestand is geen geldig JSON-bestand.')
   }
-  return json
+
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Het bestand heeft een onverwachte structuur.')
+  }
+
+  const obj = raw as Record<string, unknown>
+
+  if (obj['StatusCode'] !== '000') {
+    throw new Error(`Het pensioenoverzicht bevat een foutmelding (statuscode ${obj['StatusCode'] ?? 'onbekend'}). Controleer of u het juiste bestand heeft geüpload.`)
+  }
+
+  // Verify the minimum structure the projection engine depends on.
+  const totalen = obj['Totalen'] as Record<string, unknown> | undefined
+  const ouderdomsTotalen = totalen?.['OuderdomsPensioenTotalen'] as Record<string, unknown> | undefined
+  const totaalArray = ouderdomsTotalen?.['OuderdomsPensioenTotaal']
+
+  if (!Array.isArray(totaalArray)) {
+    throw new Error('Het bestand mist de verwachte pensioengegevens (OuderdomsPensioenTotaal). Controleer of u het juiste bestand van mijnpensioenoverzicht.nl heeft geüpload.')
+  }
+
+  return raw as Pensioenoverzicht
 }
 
 export const usePensionStore = defineStore('pension', () => {
@@ -58,7 +81,7 @@ export const usePensionStore = defineStore('pension', () => {
       pensionData.value = await parseAndValidate(file)
       save()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to parse pension file'
+      error.value = e instanceof Error ? e.message : 'Het bestand kon niet worden verwerkt.'
       pensionData.value = null
     } finally {
       isLoading.value = false
@@ -72,7 +95,7 @@ export const usePensionStore = defineStore('pension', () => {
       partnerPensionData.value = await parseAndValidate(file)
       savePartner()
     } catch (e) {
-      partnerError.value = e instanceof Error ? e.message : 'Failed to parse partner pension file'
+      partnerError.value = e instanceof Error ? e.message : 'Het bestand kon niet worden verwerkt.'
       partnerPensionData.value = null
     } finally {
       isPartnerLoading.value = false

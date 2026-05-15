@@ -20,20 +20,20 @@
       />
 
       <div v-if="scenarioStore.scenarios.length > 1" class="flex gap-3">
-        <button
-          class="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-500 transition-all hover:scale-105 active:scale-95"
+        <UButton
+          color="error"
+          variant="soft"
+          icon="i-heroicons-trash"
+          label="Alle scenario's wissen"
           @click="scenarioStore.clearScenarios()"
-        >
-          <UIcon name="i-heroicons-trash" class="size-4" />
-          Alle scenario's wissen
-        </button>
-        <button
-          class="inline-flex items-center gap-2 rounded-full bg-(--ui-primary)/10 px-4 py-2.5 text-sm font-semibold text-(--ui-primary) transition-all hover:scale-105 active:scale-95"
+        />
+        <UButton
+          color="primary"
+          variant="soft"
+          icon="i-heroicons-arrow-path"
+          label="Herberekenen"
           @click="scenarioStore.refreshScenarios()"
-        >
-          <UIcon name="i-heroicons-arrow-path" class="size-4" />
-          Herberekenen
-        </button>
+        />
       </div>
     </div>
   </div>
