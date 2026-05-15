@@ -22,8 +22,8 @@
             <USelect v-model="form.type" :items="typeOptions" />
           </UFormField>
 
-          <UFormField label="Omschrijving">
-            <UInput v-model="form.label" placeholder="bijv. Salaris werkgever" required />
+          <UFormField label="Omschrijving" hint="Optioneel">
+            <UInput v-model="form.label" placeholder="bijv. Salaris werkgever" />
           </UFormField>
 
           <template v-if="showAccountFields">
