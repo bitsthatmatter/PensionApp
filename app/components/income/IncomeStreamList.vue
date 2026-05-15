@@ -45,6 +45,9 @@
             <p v-if="s.accountNumber" class="text-xs text-(--ui-text-muted) font-mono">
               {{ s.accountNumber }}
             </p>
+            <p v-if="s.accountName && s.label" class="text-xs text-(--ui-text-dimmed)">
+              {{ s.label }}
+            </p>
           </div>
         </div>
 
@@ -53,24 +56,18 @@
           <p v-if="s.interestRate !== undefined">
             Rentepercentage: {{ formatPercent(s.interestRate) }} op jaarbasis
           </p>
-          <p v-if="s.monthlyAmount > 0">
-            Maandelijks: <span class="text-green-600 font-medium">{{ formatCurrency(s.monthlyAmount) }}</span>
-          </p>
-          <p v-if="s.lumpSum">
-            Saldo: <span class="font-medium">{{ formatCurrency(s.lumpSum) }}</span>
+          <p v-if="accruedInterest(s) !== null">
+            Opgebouwde rente: <span class="font-medium">{{ formatCurrency(accruedInterest(s)!) }}</span>
           </p>
           <p v-if="s.startDate" class="text-xs">
             {{ formatDate(s.startDate) }} → {{ s.endDate ? formatDate(s.endDate) : '∞' }}
           </p>
         </div>
 
-        <!-- Balance / monthly amount -->
+        <!-- Balance -->
         <div class="text-right shrink-0">
           <p class="font-semibold text-(--ui-text-highlighted)">
             {{ s.lumpSum ? formatCurrency(s.lumpSum) : formatCurrency(s.monthlyAmount) }}
-          </p>
-          <p v-if="s.lumpSum && s.monthlyAmount > 0" class="text-xs text-green-600">
-            + {{ formatCurrency(s.monthlyAmount) }}/mnd
           </p>
         </div>
 
@@ -173,6 +170,20 @@ function formatPercent(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value) + '%'
+}
+
+/**
+ * Simple interest accrued from startDate to today:
+ * lumpSum × (interestRate / 100) × (days elapsed / 365)
+ * Returns null when any required input is missing.
+ */
+function accruedInterest(s: FinancialStream): number | null {
+  if (!s.lumpSum || s.interestRate === undefined || !s.startDate) return null
+  const start = new Date(s.startDate).getTime()
+  const now = Date.now()
+  if (now <= start) return null
+  const daysElapsed = (now - start) / (1000 * 60 * 60 * 24)
+  return s.lumpSum * (s.interestRate / 100) * (daysElapsed / 365)
 }
 
 // Streams with account details rendered as cards
