@@ -15,10 +15,109 @@
       </div>
     </template>
 
-    <div class="space-y-3">
+    <div class="space-y-4">
+      <!-- Key metrics -->
       <div v-for="metric in metrics" :key="metric.label" class="flex items-center justify-between gap-2">
         <span class="text-sm text-(--ui-text-muted)">{{ metric.label }}</span>
         <span class="font-mono text-sm font-semibold" :class="metric.class">{{ metric.value }}</span>
+      </div>
+
+      <!-- Savings depletion -->
+      <div class="flex items-center justify-between gap-2 border-t border-(--ui-border) pt-3">
+        <span class="text-sm text-(--ui-text-muted)">Spaargeld op</span>
+        <span class="font-mono text-sm font-semibold" :class="savingsDepletedAge ? 'text-orange-500' : 'text-green-500'">
+          {{ savingsDepletedAge ? formatAge(savingsDepletedAge) : 'Nooit (voldoende)' }}
+        </span>
+      </div>
+
+      <!-- Supplement periods -->
+      <div class="border-t border-(--ui-border) pt-3 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-dimmed)">Aanvulperiodes</p>
+
+        <div
+          v-for="(period, index) in localPeriods"
+          :key="index"
+          class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated)/40 p-3 space-y-2"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-(--ui-text-muted)">Periode {{ index + 1 }}</span>
+            <button
+              class="flex size-6 items-center justify-center rounded text-(--ui-text-dimmed) hover:text-red-500 transition-colors"
+              @click="removePeriod(index)"
+            >
+              <UIcon name="i-heroicons-trash" class="size-3.5" />
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div class="space-y-1">
+              <label class="text-xs text-(--ui-text-dimmed)">Vanaf (jaar)</label>
+              <input
+                v-model.number="period.fromAge.years"
+                type="number"
+                :min="0"
+                :max="120"
+                class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                @change="onPeriodsChange"
+              >
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-(--ui-text-dimmed)">Vanaf (mnd)</label>
+              <input
+                v-model.number="period.fromAge.months"
+                type="number"
+                :min="0"
+                :max="11"
+                class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                @change="onPeriodsChange"
+              >
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-(--ui-text-dimmed)">Tot (jaar, leeg = open)</label>
+              <input
+                v-model.number="period._toYears"
+                type="number"
+                :min="0"
+                :max="120"
+                placeholder="—"
+                class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                @change="onPeriodsChange"
+              >
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-(--ui-text-dimmed)">Tot (mnd)</label>
+              <input
+                v-model.number="period._toMonths"
+                type="number"
+                :min="0"
+                :max="11"
+                placeholder="—"
+                class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                @change="onPeriodsChange"
+              >
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs text-(--ui-text-dimmed)">Gewenst totaalinkomen (€/mnd)</label>
+            <input
+              v-model.number="period.targetIncome"
+              type="number"
+              :min="0"
+              step="100"
+              class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              @change="onPeriodsChange"
+            >
+          </div>
+        </div>
+
+        <button
+          class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-(--ui-border) py-2 text-sm text-(--ui-text-muted) hover:border-(--ui-primary) hover:text-(--ui-primary) transition-colors"
+          @click="addPeriod"
+        >
+          <UIcon name="i-heroicons-plus" class="size-4" />
+          Periode toevoegen
+        </button>
       </div>
     </div>
   </UCard>
@@ -26,6 +125,8 @@
 
 <script setup lang="ts">
 import type { RetirementScenario } from '~/domain/retirement-projection'
+import type { SupplementPeriod } from '~/types/financial'
+import { useScenarioStore } from '~/stores/scenarios'
 
 const props = defineProps<{
   scenario: RetirementScenario
@@ -34,7 +135,59 @@ const props = defineProps<{
 
 defineEmits<{ remove: [] }>()
 
+const scenarioStore = useScenarioStore()
 const { formatCurrency, formatAge } = useFormatting()
+
+// Local editable copy of periods with split toAge fields for easier binding
+interface LocalPeriod {
+  fromAge: { years: number; months: number }
+  _toYears: number | null
+  _toMonths: number | null
+  targetIncome: number
+}
+
+function toLocal(periods: SupplementPeriod[]): LocalPeriod[] {
+  return periods.map(p => ({
+    fromAge: { years: p.fromAge.years, months: p.fromAge.months },
+    _toYears: p.toAge?.years ?? null,
+    _toMonths: p.toAge?.months ?? null,
+    targetIncome: p.targetIncome,
+  }))
+}
+
+function fromLocal(locals: LocalPeriod[]): SupplementPeriod[] {
+  return locals.map(p => ({
+    fromAge: { years: p.fromAge.years, months: p.fromAge.months },
+    toAge: p._toYears != null ? { years: p._toYears, months: p._toMonths ?? 0 } : undefined,
+    targetIncome: p.targetIncome,
+  }))
+}
+
+const localPeriods = ref<LocalPeriod[]>(toLocal(props.scenario.supplementPeriods))
+
+// Keep in sync if scenario changes externally
+watch(() => props.scenario.supplementPeriods, (newPeriods) => {
+  localPeriods.value = toLocal(newPeriods)
+}, { deep: true })
+
+function onPeriodsChange() {
+  scenarioStore.updateSupplementPeriods(props.scenario.id, fromLocal(localPeriods.value))
+}
+
+function addPeriod() {
+  localPeriods.value.push({
+    fromAge: { years: props.scenario.retirementAge.years, months: props.scenario.retirementAge.months },
+    _toYears: null,
+    _toMonths: null,
+    targetIncome: 0,
+  })
+  onPeriodsChange()
+}
+
+function removePeriod(index: number) {
+  localPeriods.value.splice(index, 1)
+  onPeriodsChange()
+}
 
 const retirementSnapshot = computed(() => {
   const retAge = props.scenario.retirementAge
@@ -47,6 +200,10 @@ const incomeAtRetirement = computed(() => retirementSnapshot.value?.totalIncome 
 const expensesAtRetirement = computed(() => retirementSnapshot.value?.totalExpenses ?? 0)
 const netAtRetirement = computed(() => retirementSnapshot.value?.netCashflow ?? 0)
 
+const savingsDepletedAge = computed(() => {
+  const snap = props.scenario.timeline.find(s => s.cumulativeSavings <= 0)
+  return snap?.age ?? null
+})
 
 const metrics = computed(() => [
   {

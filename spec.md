@@ -4,12 +4,12 @@
 
 Het pensioenoverzicht van mijnpensioenoverzicht.nl bevat bedragen die afhankelijk zijn van de gekozen ingangsdatum. Als een gebruiker een scenario wil vergelijken voor pensioen op 62 jaar versus 67 jaar, zijn de uitkeringsbedragen in werkelijkheid anders — maar het huidige systeem gebruikt altijd hetzelfde JSON-bestand voor alle scenario's.
 
-Daarnaast wil de gebruiker per scenario kunnen instellen hoeveel spaargeld hij maandelijks wil opnemen als aanvulling op zijn pensioeninkomen, inclusief een signalering wanneer dat spaargeld op is.
+Daarnaast wil de gebruiker per scenario kunnen instellen tot welk bedrag hij zijn maandelijkse bruto uitkering wil kunnen aanvullen, inclusief een signalering wanneer het spaargeld dat hij daarvoor gebruikt op is.
 
 De oplossing bestaat uit drie samenhangende onderdelen:
 1. Meerdere pensioenoverzichten uploaden (elk voor een andere ingangsdatum).
 2. Scenario's worden automatisch gegenereerd op basis van de geladen overzichten — de slider verdwijnt.
-3. Per scenario kan een maandelijks op te nemen spaarbedrag worden ingesteld.
+3. Per scenario kan worden aangegeven tot welk bedrag de maandelijkse uitkering aangevuld moet worden.
 
 ---
 
@@ -34,29 +34,33 @@ De oplossing bestaat uit drie samenhangende onderdelen:
 
 - Elk automatisch scenario gebruikt het overzicht waarvan de ingangsdatum overeenkomt met de pensioenleeftijd van dat scenario (exacte match, want het scenario is afgeleid van dat overzicht).
 - Als er geen overzicht is, wordt `null` doorgegeven (huidig gedrag).
+- Partner-overzichten genereren **geen eigen scenario's**. Ze worden gekoppeld aan het primaire scenario met dezelfde ingangsdatum: als er een partner-overzicht bestaat met dezelfde ingangsdatum als een primair scenario, wordt dat partner-overzicht meegegeven als `partnerPensionData` in de `ProjectionInput`. Als er geen match is, wordt `null` doorgegeven.
 
-### Spaargeld-opnameperiodes per scenario
+### Aan te vullen tot bedrag voor bepaalde periodes per scenario
 
-- Het enkelvoudige `monthlyWithdrawal: number` wordt vervangen door een lijst van **opnameperiodes**: `withdrawalPeriods: WithdrawalPeriod[]`.
-- Een `WithdrawalPeriod` heeft:
+- Het enkelvoudige `monthlyWithdrawal: number` wordt vervangen door een lijst van **aan te vullen tot periodes**: `supplementPeriods: SupplementPeriod[]`.
+- Een `SupplementPeriod` heeft:
   - `fromAge: Age` — startleeftijd (inclusief)
   - `toAge?: Age` — eindleeftijd (exclusief). Als leeg: periode loopt tot einde tijdlijn of tot spaarpot leeg is.
-  - `monthlyAmount: number` — maandelijks op te nemen bedrag in eurocenten (≥ 0)
+  - `targetIncome: number` — het gewenste totale bruto maandinkomen in euro's (≥ 0)
+- `monthlyWithdrawal` is **geen opgeslagen veld**. De benodigde aanvulling wordt elke maand dynamisch berekend in de projectie: `max(0, targetIncome − regulierInkomenDieMaand)`. Hierdoor past de aanvulling zich automatisch aan als bijv. AOW later start.
 - Periodes mogen niet overlappen. De volgorde is op `fromAge`.
-- De **spaarpot** is het initiële lump sum saldo uit `savings`-streams (type `savings` met `lumpSum`), al aanwezig in de projection engine als `cumulativeSavings` startwaarde.
-- Per maand in de projectie: zoek de actieve periode op basis van `ageMonth`. Tel het `monthlyAmount` op bij `totalIncome`, maar alleen zolang `cumulativeSavings > 0`.
-- De maandopname stopt zodra `cumulativeSavings ≤ 0`, ongeacht de periode.
+- De **spaarpot** is het lopende `cumulativeSavings` saldo (inclusief effect van regulier netto cashflow, niet alleen de initiële lump sum).
+- Per maand in de projectie: zoek de actieve `SupplementPeriod` op basis van `ageMonth`. Bereken de benodigde aanvulling als `max(0, targetIncome − regulierInkomen)`. Tel dit op bij het inkomen, maar alleen zolang `cumulativeSavings > 0` (vóór de aanvulling van die maand).
+- De maandaanvulling stopt zodra `cumulativeSavings ≤ 0` (vóór aanvulling), ongeacht de periode.
 - De scenario-kaart toont op welke leeftijd de spaarpot leeg is (of "Nooit (voldoende)").
 - In de grafiek daalt het maandinkomen zichtbaar wanneer een periode eindigt of de spaarpot leeg raakt.
-- `withdrawalPeriods` wordt opgeslagen als onderdeel van het scenario-object.
+- `supplementPeriods` wordt opgeslagen als onderdeel van het scenario-object.
+- Voorbeeld: regulier inkomen die maand is € 3.400; `targetIncome` = € 4.300 → aanvulling = € 900.
 
 ### Scenario-kaart (`ScenarioCard.vue`)
 
-- Toont een bewerkbare lijst van opnameperiodes, elk met:
+- De bestaande verwijderknop (×) in de kaart-header blijft. Verwijderen van een scenario verwijdert het scenario uit de lijst (niet het bijbehorende overzicht).
+- Toont een bewerkbare lijst van aanvulperiodes, elk met:
   - Van-leeftijd (jaren + maanden)
   - Tot-leeftijd (jaren + maanden, optioneel — leeg = open einde)
-  - Maandelijks bedrag (€/mnd)
-  - Verwijderknop
+  - Gewenst totaalinkomen `targetIncome` (€/mnd)
+  - Verwijderknop per periode
 - Knop "Periode toevoegen" voegt een nieuwe lege periode toe.
 - Bij elke wijziging wordt het scenario direct herberekend.
 - Toont een rij "Spaargeld op" met de leeftijd waarop `cumulativeSavings ≤ 0`, of "Nooit (voldoende)".
@@ -91,32 +95,32 @@ De oplossing bestaat uit drie samenhangende onderdelen:
 4. Zodra overzichten geladen zijn, verschijnen automatisch evenveel scenario's als overzichten, elk met de bijbehorende ingangsdatum als pensioenleeftijd.
 5. De `ScenarioSelector` met slider is verwijderd van de scenario's pagina.
 6. Als geen enkel overzicht is geladen, toont de scenario's pagina een lege staat met instructie.
-7. Per scenario kunnen meerdere opnameperiodes worden ingesteld (van leeftijd tot leeftijd, met maandelijks bedrag). De laatste periode mag een open einde hebben.
-8. Het opnamebedrag wordt per maand opgeteld bij het inkomen, maar stopt zodra de spaarpot leeg is.
+7. Per scenario kunnen meerdere aanvulperiodes worden ingesteld (van leeftijd tot leeftijd, met maandelijks bedrag). De laatste periode mag een open einde hebben.
+8. Het aanvulbedrag wordt per maand opgeteld bij het inkomen, maar stopt zodra de spaarpot leeg is.
 9. De scenario-kaart toont op welke leeftijd de spaarpot leeg is.
 10. In de grafiek daalt het maandinkomen zichtbaar wanneer een periode eindigt of de spaarpot leeg raakt.
 11. De waarschuwing is zichtbaar op de scenario's pagina zodra er minimaal één overzicht geladen is.
 12. De dashboard-stat toont het aantal geladen overzichten.
-13. Alle bovenstaande punten gelden ook voor de partner.
+13. Partner-overzichten (max 3) worden opgeslagen en getoond in `PensionUpload` (partner). Ze genereren geen eigen scenario's, maar worden gekoppeld aan het primaire scenario met dezelfde ingangsdatum als `partnerPensionData`. De dashboard-stat voor de partner toont het aantal geladen partner-overzichten.
 14. Bestaande tests blijven slagen.
 
 ---
 
 ## Implementatieaanpak
 
-1. **`domain/pension-overview.ts`** (nieuw) — pure functie `deriveIngangsdatum(overzicht: Pensioenoverzicht): Age` die de ingangsdatum afleidt uit de eerste totaalregel met een `Pensioen`-bedrag en een leeftijdsgrens als `Van`. Voeg een `.test.ts` toe.
+1. **`domain/pension-overview.ts`** (nieuw) — pure functie `deriveIngangsdatum(overzicht: Pensioenoverzicht): Age` die de ingangsdatum afleidt als de **laagste `Van.Leeftijd`** uit alle totaalregels met een `Pensioen`-bedrag > 0 en een `LeeftijdsGrens` als `Van`. Voeg een `.test.ts` toe.
 
 2. **`pension.ts` store** — verander `pensionData: Pensioenoverzicht | null` naar `pensionData: Pensioenoverzicht[]` (max 3). Zelfde voor `partnerPensionData`. Pas `uploadPensionFile` / `uploadPartnerPensionFile` aan: voeg toe aan lijst of overschrijf bij zelfde ingangsdatum. Voeg `removePensionFile(index)` / `removePartnerPensionFile(index)` toe. Verwijder `findClosestOverzicht` — niet nodig omdat scenario's exact gekoppeld zijn aan hun overzicht.
 
-3. **`types/financial.ts`** — voeg `WithdrawalPeriod` interface toe: `{ fromAge: Age, toAge?: Age, monthlyAmount: number }`.
+3. **`types/financial.ts`** — voeg `SupplementPeriod` interface toe: `{ fromAge: Age, toAge?: Age, targetIncome: number }`. Geen `monthlyWithdrawal` veld — dat is een dynamische berekening in de projectie.
 
-4. **`retirement-projection.ts`** — vervang `monthlyWithdrawal: number` door `withdrawalPeriods: WithdrawalPeriod[]` in `ProjectionInput`. In de maandlus: zoek de actieve `WithdrawalPeriod` op basis van `ageMonth` (van ≤ ageMonth < tot, of geen tot = open einde). Tel `monthlyAmount` op bij `totalIncome` zolang `cumulativeSavings > 0`. `pensionData` blijft `Pensioenoverzicht | null`.
+4. **`retirement-projection.ts`** — voeg `supplementPeriods: SupplementPeriod[]` toe aan `ProjectionInput` (default `[]`). Voeg ook `partnerPensionData: Pensioenoverzicht | null` toe (default `null`, voor toekomstig gebruik — nog niet gebruikt in cashflow). In de maandlus: zoek de actieve `SupplementPeriod` op basis van `ageMonth` (van ≤ ageMonth < tot, of geen tot = open einde). Bereken aanvulling als `max(0, period.targetIncome − regulierInkomenDieMaand)`. Tel dit op bij het inkomen, maar **alleen als `cumulativeSavings > 0` vóór de aanvulling**. `pensionData` blijft `Pensioenoverzicht | null`.
 
-5. **`RetirementScenario` interface** — vervang `monthlyWithdrawal: number` door `withdrawalPeriods: WithdrawalPeriod[]` in het scenario-object.
+5. **`RetirementScenario` interface** — voeg `supplementPeriods: SupplementPeriod[]` toe aan het scenario-object (default `[]`). Verwijder eventueel bestaand `monthlyWithdrawal` veld.
 
-6. **`scenarios.ts` store** — verwijder `addScenario`, `removeScenario`, `clearScenarios`, `refreshScenarios`. Vervang door een `watch` op `pensionStore.pensionData` (de array): genereer automatisch één scenario per overzicht, met de ingangsdatum als `retirementAge`, het bijbehorende overzicht als `pensionData`, en `withdrawalPeriods: []` als default. Voeg `updateWithdrawalPeriods(id, periods: WithdrawalPeriod[])` toe die de periodes van een scenario bijwerkt en de tijdlijn herberekent.
+6. **`scenarios.ts` store** — verwijder `addScenario`, `clearScenarios`, `refreshScenarios`. Behoud `removeScenario` (verwijderknop op kaart blijft). Voeg een `watch` toe op `pensionStore.pensionData` (de array): genereer automatisch één scenario per overzicht, met de ingangsdatum als `retirementAge`, het bijbehorende overzicht als `pensionData`, het partner-overzicht met dezelfde ingangsdatum als `partnerPensionData` (of `null`), en `supplementPeriods: []` als default. Bestaande scenario's met dezelfde `retirementAge` worden bijgewerkt (niet vervangen) zodat `supplementPeriods` behouden blijft. Voeg `updateSupplementPeriods(id, periods: SupplementPeriod[])` toe die de periodes van een scenario bijwerkt en de tijdlijn herberekent.
 
-7. **`ScenarioCard.vue`** — vervang het enkelvoudige invoerveld door een bewerkbare lijst van opnameperiodes (van-leeftijd, tot-leeftijd optioneel, maandbedrag, verwijderknop) met een "Periode toevoegen" knop. Voeg de rij "Spaargeld op" toe: leeftijd waarop `cumulativeSavings ≤ 0`, of "Nooit (voldoende)". Bij elke wijziging: roep `scenarioStore.updateWithdrawalPeriods` aan.
+7. **`ScenarioCard.vue`** — vervang het enkelvoudige invoerveld door een bewerkbare lijst van aanvulperiodes (van-leeftijd, tot-leeftijd optioneel, `targetIncome`, verwijderknop per periode) met een "Periode toevoegen" knop. Voeg de rij "Spaargeld op" toe: leeftijd waarop `cumulativeSavings ≤ 0`, of "Nooit (voldoende)". Bij elke wijziging: roep `scenarioStore.updateSupplementPeriods` aan. De bestaande verwijderknop (×) in de header blijft en verwijdert het scenario via `scenarioStore.removeScenario`.
 
 7. **`ScenarioSelector.vue`** — verwijder de component (of maak hem inactief). Verwijder de import in `scenarios.vue`.
 
@@ -126,4 +130,4 @@ De oplossing bestaat uit drie samenhangende onderdelen:
 
 10. **`ProfileForm.vue` / `PartnerProfileForm.vue`** — pas de "Pensioenoverzicht" stat aan: toon aantal geladen overzichten (bijv. "2 geladen") of "Niet geladen".
 
-11. **Tests** — voeg tests toe voor `deriveIngangsdatum`. Update `retirement-projection.test.ts` voor `withdrawalPeriods` in `ProjectionInput`: test dat het juiste bedrag per periode wordt opgeteld, dat de opname stopt bij een lege spaarpot, en dat een open-einde periode correct doorloopt.
+11. **Tests** — voeg tests toe voor `deriveIngangsdatum` (inclusief geval met meerdere Van-leeftijden: laagste wordt gekozen). Update `retirement-projection.test.ts` voor `supplementPeriods` in `ProjectionInput`: test dat de aanvulling dynamisch wordt berekend per maand (`max(0, targetIncome − regulierInkomen)`), dat de aanvulling stopt als `cumulativeSavings ≤ 0`, en dat een open-einde periode correct doorloopt.

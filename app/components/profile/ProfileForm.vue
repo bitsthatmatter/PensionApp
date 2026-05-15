@@ -83,7 +83,7 @@
           </div>
           <div class="min-w-0">
             <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Pensioenoverzicht</p>
-            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.pensionData ? 'Geladen' : 'Niet geladen' }}</p>
+            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.pensionData.length > 0 ? `${pensionStore.pensionData.length} geladen` : 'Niet geladen' }}</p>
           </div>
         </div>
       </div>
