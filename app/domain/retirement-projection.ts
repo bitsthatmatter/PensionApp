@@ -1,4 +1,7 @@
-import type { Age, FinancialStream, BudgetedCost, PensionOverview } from '~/types/financial'
+import { Temporal } from 'temporal-polyfill'
+import type { Age, FinancialStream, BudgetedCost } from '~/types/financial'
+import type { Pensioenoverzicht } from '~/types/pensioenoverzicht'
+import { isLeeftijdsGrens } from '~/types/pensioenoverzicht'
 import { ageToMonths, monthsToAge, addMonthsToDate, ageAtDate } from '~/domain/age'
 
 export interface MonthSnapshot {
@@ -27,7 +30,7 @@ export interface ProjectionInput {
   streams: FinancialStream[]
   expenseStreams: FinancialStream[]
   budgetedCosts: BudgetedCost[]
-  pensionData: PensionOverview | null
+  pensionData: Pensioenoverzicht | null
   endAge?: number
 }
 
@@ -44,8 +47,8 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     endAge = 95,
   } = input
 
-  const now = new Date()
-  const currentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const today = Temporal.Now.plainDateISO()
+  const currentDate = Temporal.PlainDate.from({ year: today.year, month: today.month, day: 1 }).toString()
   const currentAgeMonths = ageToMonths(ageAtDate(dateOfBirth, currentDate))
   const endAgeMonths = endAge * 12
   const retirementAgeMonths = ageToMonths(retirementAge)
@@ -81,14 +84,18 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     }
 
     if (pensionData && ageMonth >= retirementAgeMonths) {
-      const matchingPeriod = pensionData.ouderdomsPensioen.find(p => {
-        const fromMonths = ageToMonths(p.fromAge)
-        const toMonths = p.toAge ? ageToMonths(p.toAge) : Infinity
+      const totaalRegels = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
+      const matchingPeriod = totaalRegels.find(p => {
+        if (!isLeeftijdsGrens(p.Van)) return false
+        const fromMonths = p.Van.Leeftijd.Jaren * 12 + p.Van.Leeftijd.Maanden
+        const toMonths = isLeeftijdsGrens(p.Tot)
+          ? p.Tot.Leeftijd.Jaren * 12 + p.Tot.Leeftijd.Maanden
+          : Infinity
         return ageMonth >= fromMonths && ageMonth < toMonths
       })
 
       if (matchingPeriod) {
-        totalIncome += (matchingPeriod.pension + (matchingPeriod.indicatiefPensioen ?? 0)) / 12
+        totalIncome += ((matchingPeriod.Pensioen ?? 0) + (matchingPeriod.IndicatiefPensioen ?? 0)) / 12
       }
     }
 
@@ -96,30 +103,34 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
       // samenwonend is the per-person AOW rate for cohabitants; alleenstaand for singles.
       // The partner's own AOW entitlement is not added here — this projection models
       // the primary person's individual cashflow only.
-      const aowAnnual = hasPartner ? pensionData.aow.samenwonend : pensionData.aow.alleenstaand
+      const aowPeriod = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
+        .find(p => p.AOWSamenwonend != null)
+      const aowAnnual = hasPartner
+        ? (aowPeriod?.AOWSamenwonend ?? 0)
+        : (aowPeriod?.AOWAlleenstaand ?? 0)
       totalIncome += aowAnnual / 12
     }
 
+    const currentPlain = Temporal.PlainDate.from(date)
+
     for (const cost of budgetedCosts) {
-      const costDate = new Date(cost.date)
-      const currentMonth = new Date(date)
+      const costPlain = Temporal.PlainDate.from(cost.date)
 
       if (cost.recurring === 'once') {
-        if (costDate.getFullYear() === currentMonth.getFullYear() &&
-            costDate.getMonth() === currentMonth.getMonth()) {
+        if (costPlain.year === currentPlain.year && costPlain.month === currentPlain.month) {
           totalExpenses += cost.amount
         }
       } else if (cost.recurring === 'monthly') {
-        if (currentMonth >= costDate) {
-          const endDate = cost.endDate ? new Date(cost.endDate) : null
-          if (!endDate || currentMonth <= endDate) {
+        if (Temporal.PlainDate.compare(currentPlain, costPlain) >= 0) {
+          const endPlain = cost.endDate ? Temporal.PlainDate.from(cost.endDate) : null
+          if (!endPlain || Temporal.PlainDate.compare(currentPlain, endPlain) <= 0) {
             totalExpenses += cost.amount
           }
         }
       } else if (cost.recurring === 'yearly') {
-        if (currentMonth >= costDate && costDate.getMonth() === currentMonth.getMonth()) {
-          const endDate = cost.endDate ? new Date(cost.endDate) : null
-          if (!endDate || currentMonth <= endDate) {
+        if (Temporal.PlainDate.compare(currentPlain, costPlain) >= 0 && costPlain.month === currentPlain.month) {
+          const endPlain = cost.endDate ? Temporal.PlainDate.from(cost.endDate) : null
+          if (!endPlain || Temporal.PlainDate.compare(currentPlain, endPlain) <= 0) {
             totalExpenses += cost.amount
           }
         }

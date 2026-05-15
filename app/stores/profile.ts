@@ -1,3 +1,4 @@
+import { Temporal } from 'temporal-polyfill'
 import { defineStore } from 'pinia'
 import type { Age, UserProfile } from '~/types/financial'
 import { ageAtDate as ageAtDateUtil } from '~/domain/age'
@@ -12,6 +13,7 @@ export const useProfileStore = defineStore('profile', () => {
     hasPartner: false,
     partnerDateOfBirth: undefined,
     aowAge: { ...defaultAowAge },
+    partnerAowAge: { ...defaultAowAge },
   })
 
   function load() {
@@ -34,16 +36,12 @@ export const useProfileStore = defineStore('profile', () => {
   }
 
   function dateAtAge(dob: string, age: Age): string {
-    const birth = new Date(dob)
-    const target = new Date(birth)
-    target.setFullYear(target.getFullYear() + age.years)
-    target.setMonth(target.getMonth() + age.months)
-    return target.toISOString().slice(0, 10)
+    return Temporal.PlainDate.from(dob).add({ years: age.years, months: age.months }).toString()
   }
 
   const currentAge = computed(() => {
     if (!profile.value.dateOfBirth) return null
-    return ageAtDate(profile.value.dateOfBirth, new Date().toISOString().slice(0, 10))
+    return ageAtDate(profile.value.dateOfBirth, Temporal.Now.plainDateISO().toString())
   })
 
   const aowStartDate = computed(() => {
@@ -51,9 +49,14 @@ export const useProfileStore = defineStore('profile', () => {
     return dateAtAge(profile.value.dateOfBirth, profile.value.aowAge)
   })
 
+  const partnerCurrentAge = computed(() => {
+    if (!profile.value.partnerDateOfBirth) return null
+    return ageAtDate(profile.value.partnerDateOfBirth, Temporal.Now.plainDateISO().toString())
+  })
+
   const partnerAowStartDate = computed(() => {
     if (!profile.value.partnerDateOfBirth) return null
-    return dateAtAge(profile.value.partnerDateOfBirth, profile.value.aowAge)
+    return dateAtAge(profile.value.partnerDateOfBirth, profile.value.partnerAowAge)
   })
 
   load()
@@ -64,6 +67,7 @@ export const useProfileStore = defineStore('profile', () => {
     profile,
     currentAge,
     aowStartDate,
+    partnerCurrentAge,
     partnerAowStartDate,
     ageAtDate,
     dateAtAge,

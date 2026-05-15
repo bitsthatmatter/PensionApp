@@ -26,7 +26,6 @@
 
 <script setup lang="ts">
 import type { RetirementScenario } from '~/domain/retirement-projection'
-import type { Age } from '~/types/financial'
 
 const props = defineProps<{
   scenario: RetirementScenario
@@ -48,10 +47,6 @@ const incomeAtRetirement = computed(() => retirementSnapshot.value?.totalIncome 
 const expensesAtRetirement = computed(() => retirementSnapshot.value?.totalExpenses ?? 0)
 const netAtRetirement = computed(() => retirementSnapshot.value?.netCashflow ?? 0)
 
-const savingsDepletedAge = computed<Age | null>(() => {
-  const depleted = props.scenario.timeline.find(s => s.cumulativeSavings < 0)
-  return depleted ? depleted.age : null
-})
 
 const metrics = computed(() => [
   {
@@ -73,11 +68,6 @@ const metrics = computed(() => [
     label: 'Netto bij pensioen',
     value: `${formatCurrency(netAtRetirement.value)} /mnd`,
     class: netAtRetirement.value >= 0 ? 'text-green-500' : 'text-red-500',
-  },
-  {
-    label: 'Spaargeld op',
-    value: savingsDepletedAge.value ? formatAge(savingsDepletedAge.value) : 'Nooit (voldoende)',
-    class: savingsDepletedAge.value ? 'text-red-500' : 'text-green-500',
   },
 ])
 </script>

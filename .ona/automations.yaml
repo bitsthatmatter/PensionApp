@@ -4,5 +4,5 @@ services:
     description: Nuxt development server
     commands:
       start: pnpm dev
-    ready:
-      port: 3000
+    ports:
+      - port: 3000

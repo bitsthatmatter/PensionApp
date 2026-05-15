@@ -1,3 +1,8 @@
+<script setup lang="ts">
+import { useProfileStore } from '~/stores/profile'
+const profileStore = useProfileStore()
+</script>
+
 <template>
   <div class="min-h-[calc(100vh-4rem)]">
     <!-- Hero section -->
@@ -13,6 +18,7 @@
 
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
       <IncomePensionUpload />
+      <IncomePensionUpload v-if="profileStore.profile.hasPartner && profileStore.profile.partnerDateOfBirth" person="partner" />
       <IncomeAowConfig />
       <IncomeStreamList />
     </div>

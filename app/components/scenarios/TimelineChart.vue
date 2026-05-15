@@ -6,8 +6,8 @@
           <UIcon name="i-heroicons-chart-bar" class="size-5 text-(--ui-primary)" />
         </div>
         <div>
-          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">Vermogensverloop</h3>
-          <p class="text-sm text-(--ui-text-muted)">Cumulatief spaargeld per leeftijd voor elk scenario</p>
+          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">Maandinkomen per leeftijd</h3>
+          <p class="text-sm text-(--ui-text-muted)">Bruto maandinkomen per leeftijd voor elk scenario</p>
         </div>
       </div>
     </template>
@@ -66,7 +66,7 @@ const chartData = computed(() => {
     label: scenario.label,
     data: sampledIndices.map(i => {
       const snap = scenario.timeline[i]
-      return snap ? snap.cumulativeSavings : null
+      return snap ? snap.totalIncome : null
     }),
     borderColor: colors[idx % colors.length],
     backgroundColor: colors[idx % colors.length] + '20',
@@ -77,17 +77,7 @@ const chartData = computed(() => {
     borderWidth: 2.5,
   }))
 
-  datasets.push({
-    label: '€0 lijn',
-    data: sampledIndices.map(() => 0),
-    borderColor: '#868685',
-    backgroundColor: 'transparent',
-    tension: 0,
-    fill: false,
-    pointRadius: 0,
-    pointHitRadius: 0,
-    borderWidth: 1,
-  })
+
 
   return { labels, datasets }
 })
@@ -129,10 +119,10 @@ const chartOptions = computed(() => ({
       grid: { display: false },
     },
     y: {
-      title: { display: true, text: 'Vermogen (€)', font: { family: "'Inter', system-ui, sans-serif" } },
+      title: { display: true, text: 'Bruto inkomen (€/mnd)', font: { family: "'Inter', system-ui, sans-serif" } },
       ticks: {
         callback: (value: number | string) => typeof value === 'number' ? formatCurrency(value) : String(value),
-        font: { family: "'Inter', system-ui, sans-serif', size: 11 },
+        font: { family: "'Inter', system-ui, sans-serif", size: 11 },
       },
       grid: { color: 'rgba(134, 134, 133, 0.1)' },
     },

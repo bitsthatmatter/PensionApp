@@ -18,33 +18,10 @@
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       <!-- Profile form -->
       <ProfileForm />
+      <ProfilePartnerProfileForm v-if="profileStore.profile.hasPartner" />
 
-      <!-- Overview cards -->
+      <!-- Quick links -->
       <template v-if="profileStore.profile.dateOfBirth">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <UCard
-            v-for="card in overviewCards"
-            :key="card.label"
-            variant="subtle"
-            :ui="{ body: 'p-5' }"
-          >
-            <div class="flex items-center gap-4">
-              <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-(--ui-primary)/10">
-                <UIcon :name="card.icon" class="size-6 text-(--ui-primary)" />
-              </div>
-              <div class="min-w-0">
-                <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">
-                  {{ card.label }}
-                </p>
-                <p class="text-sm font-bold text-(--ui-text-highlighted) truncate" :title="card.value">
-                  {{ card.value }}
-                </p>
-              </div>
-            </div>
-          </UCard>
-        </div>
-
-        <!-- Quick links -->
         <div>
           <h2 class="text-lg font-semibold text-(--ui-text-highlighted) mb-4">Aan de slag</h2>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -81,36 +58,10 @@
 
 <script setup lang="ts">
 import { useProfileStore } from '~/stores/profile'
-import { useFinancialStore } from '~/stores/financial'
-import { usePensionStore } from '~/stores/pension'
 
 const profileStore = useProfileStore()
-const financialStore = useFinancialStore()
-const pensionStore = usePensionStore()
-const { formatAge, formatDate } = useFormatting()
 
-const overviewCards = computed(() => [
-  {
-    label: 'Leeftijd',
-    value: profileStore.currentAge ? formatAge(profileStore.currentAge) : '—',
-    icon: 'i-heroicons-user',
-  },
-  {
-    label: 'AOW-ingangsdatum',
-    value: profileStore.aowStartDate ? formatDate(profileStore.aowStartDate) : '—',
-    icon: 'i-heroicons-calendar-days',
-  },
-  {
-    label: 'Inkomstenbronnen',
-    value: financialStore.streams.length.toString(),
-    icon: 'i-heroicons-arrow-trending-up',
-  },
-  {
-    label: 'Pensioenoverzicht',
-    value: pensionStore.pensionData ? 'Geladen' : 'Niet geladen',
-    icon: 'i-heroicons-document-check',
-  },
-])
+
 
 const quickLinks = [
   {
