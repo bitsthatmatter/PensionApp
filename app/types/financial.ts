@@ -34,6 +34,12 @@ export interface FinancialStream {
   endDate?: string
   startAge?: Age
   endAge?: Age
+  /** Account name, e.g. 'Gouden Internet Rekening'. Used for savings/loan streams. */
+  accountName?: string
+  /** Account number in IBAN format. Used for savings/loan streams. */
+  accountNumber?: string
+  /** Annual interest rate as a percentage, e.g. 2.8 for 2.80%. Used for savings/loan streams. */
+  interestRate?: number
 }
 
 export interface SupplementPeriod {
