@@ -26,36 +26,105 @@
       <p class="text-xs text-(--ui-text-dimmed) mt-1">Klik op 'Toevoegen' om te beginnen.</p>
     </div>
 
-    <UTable v-else :data="tableData" :columns="columns">
-      <template #type-cell="{ row }">
-        <UBadge :color="badgeColor(row.original.rawType)" variant="subtle" size="sm">
-          {{ row.original.typeLabel }}
-        </UBadge>
-      </template>
-      <template #monthly-cell="{ row }">
-        <span :class="row.original.monthlyRaw < 0 ? 'text-red-500' : 'text-green-500'" class="font-mono text-sm">
-          {{ row.original.monthly }}
-        </span>
-      </template>
-      <template #actions-cell="{ row }">
-        <div class="flex gap-1">
+    <template v-else>
+      <!-- Card-style rows for savings/loan streams with account details -->
+      <div
+        v-for="s in accountStreams"
+        :key="s.id"
+        class="flex items-center gap-4 px-4 py-4 border-b border-(--ui-border) last:border-b-0"
+      >
+        <!-- Icon + account info -->
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-green-600 text-green-600">
+            <UIcon name="i-heroicons-banknotes" class="size-5" />
+          </div>
+          <div class="min-w-0">
+            <p class="font-semibold text-(--ui-text-highlighted) truncate">
+              {{ s.accountName || s.label }}
+            </p>
+            <p v-if="s.accountNumber" class="text-xs text-(--ui-text-muted) font-mono">
+              {{ s.accountNumber }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Interest + accrued info -->
+        <div class="hidden sm:block flex-1 text-sm text-(--ui-text-muted) space-y-0.5">
+          <p v-if="s.interestRate !== undefined">
+            Rentepercentage: {{ formatPercent(s.interestRate) }} op jaarbasis
+          </p>
+          <p v-if="s.monthlyAmount > 0">
+            Maandelijks: <span class="text-green-600 font-medium">{{ formatCurrency(s.monthlyAmount) }}</span>
+          </p>
+          <p v-if="s.lumpSum">
+            Saldo: <span class="font-medium">{{ formatCurrency(s.lumpSum) }}</span>
+          </p>
+          <p v-if="s.startDate" class="text-xs">
+            {{ formatDate(s.startDate) }} → {{ s.endDate ? formatDate(s.endDate) : '∞' }}
+          </p>
+        </div>
+
+        <!-- Balance / monthly amount -->
+        <div class="text-right shrink-0">
+          <p class="font-semibold text-(--ui-text-highlighted)">
+            {{ s.lumpSum ? formatCurrency(s.lumpSum) : formatCurrency(s.monthlyAmount) }}
+          </p>
+          <p v-if="s.lumpSum && s.monthlyAmount > 0" class="text-xs text-green-600">
+            + {{ formatCurrency(s.monthlyAmount) }}/mnd
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-1 shrink-0">
           <UButton
             icon="i-heroicons-pencil-square"
             color="neutral"
             variant="ghost"
             size="xs"
-            @click="editStream(row.original.raw)"
+            @click="editStream(s)"
           />
           <UButton
             icon="i-heroicons-trash"
             color="error"
             variant="ghost"
             size="xs"
-            @click="financialStore.removeStream(row.original.raw.id)"
+            @click="financialStore.removeStream(s.id)"
           />
         </div>
-      </template>
-    </UTable>
+      </div>
+
+      <!-- Table for all other streams -->
+      <UTable v-if="tableData.length > 0" :data="tableData" :columns="columns">
+        <template #type-cell="{ row }">
+          <UBadge :color="badgeColor(row.original.rawType)" variant="subtle" size="sm">
+            {{ row.original.typeLabel }}
+          </UBadge>
+        </template>
+        <template #monthly-cell="{ row }">
+          <span :class="row.original.monthlyRaw < 0 ? 'text-red-500' : 'text-green-500'" class="font-mono text-sm">
+            {{ row.original.monthly }}
+          </span>
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex gap-1">
+            <UButton
+              icon="i-heroicons-pencil-square"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              @click="editStream(row.original.raw)"
+            />
+            <UButton
+              icon="i-heroicons-trash"
+              color="error"
+              variant="ghost"
+              size="xs"
+              @click="financialStore.removeStream(row.original.raw.id)"
+            />
+          </div>
+        </template>
+      </UTable>
+    </template>
 
     <IncomeStreamForm
       v-if="showForm"
@@ -99,6 +168,23 @@ function badgeColor(type: StreamType): string {
   return map[type] ?? 'neutral'
 }
 
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat('nl-NL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value) + '%'
+}
+
+// Streams with account details rendered as cards
+const accountStreams = computed(() =>
+  financialStore.streams.filter(s => ['savings', 'loan'].includes(s.type))
+)
+
+// All other streams rendered in the table
+const otherStreams = computed(() =>
+  financialStore.streams.filter(s => !['savings', 'loan'].includes(s.type))
+)
+
 const columns: TableColumn[] = [
   { accessorKey: 'typeLabel', header: 'Type', id: 'type' },
   { accessorKey: 'label', header: 'Omschrijving' },
@@ -109,7 +195,7 @@ const columns: TableColumn[] = [
 ]
 
 const tableData = computed(() =>
-  financialStore.streams.map((s) => ({
+  otherStreams.value.map((s) => ({
     raw: s,
     rawType: s.type,
     typeLabel: typeLabels[s.type] ?? s.type,

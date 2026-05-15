@@ -26,6 +26,26 @@
             <UInput v-model="form.label" placeholder="bijv. Salaris werkgever" required />
           </UFormField>
 
+          <template v-if="showAccountFields">
+            <UFormField label="Naam van de rekening">
+              <UInput v-model="form.accountName" placeholder="bijv. Gouden Internet Rekening" />
+            </UFormField>
+
+            <UFormField label="Rekeningnummer (IBAN)">
+              <UInput v-model="form.accountNumber" placeholder="bijv. NL49 UGBI 2018 6366 69" />
+            </UFormField>
+
+            <UFormField label="Rentepercentage op jaarbasis (%)">
+              <UInput
+                v-model.number="form.interestRate"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="bijv. 2.80"
+              />
+            </UFormField>
+          </template>
+
           <UFormField label="Maandelijks bedrag (€)">
             <UInput v-model.number="form.monthlyAmount" type="number" step="0.01" icon="i-heroicons-currency-euro" />
           </UFormField>
@@ -85,10 +105,18 @@ const form = reactive({
   lumpSum: undefined as number | undefined,
   startDate: '',
   endDate: '',
+  accountName: '',
+  accountNumber: '',
+  interestRate: undefined as number | undefined,
 })
 
 const showLumpSum = computed(() =>
   ['savings', 'loan', 'stocks'].includes(form.type)
+)
+
+// Show account/interest fields for savings and loan streams
+const showAccountFields = computed(() =>
+  ['savings', 'loan'].includes(form.type)
 )
 
 if (props.editing) {
@@ -98,6 +126,9 @@ if (props.editing) {
   form.lumpSum = props.editing.lumpSum
   form.startDate = props.editing.startDate ?? ''
   form.endDate = props.editing.endDate ?? ''
+  form.accountName = props.editing.accountName ?? ''
+  form.accountNumber = props.editing.accountNumber ?? ''
+  form.interestRate = props.editing.interestRate
 }
 
 function handleSubmit() {
@@ -108,6 +139,9 @@ function handleSubmit() {
     lumpSum: showLumpSum.value ? form.lumpSum : undefined,
     startDate: form.startDate || undefined,
     endDate: form.endDate || undefined,
+    accountName: showAccountFields.value && form.accountName ? form.accountName : undefined,
+    accountNumber: showAccountFields.value && form.accountNumber ? form.accountNumber : undefined,
+    interestRate: showAccountFields.value && form.interestRate !== undefined ? form.interestRate : undefined,
   })
   open.value = false
 }
