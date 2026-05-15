@@ -13,11 +13,13 @@
     </template>
 
     <div class="space-y-4">
+      <!-- Upload button -->
       <div class="flex items-center gap-3">
         <UButton
           color="primary"
           icon="i-heroicons-arrow-up-tray"
           label="Bestand kiezen"
+          :disabled="overviews.length >= 3"
           @click="($refs.fileInput as HTMLInputElement).click()"
         />
         <input
@@ -28,6 +30,7 @@
           @change="handleUpload"
         >
         <span v-if="isLoading" class="text-sm text-(--ui-text-muted)">Bezig met verwerken...</span>
+        <UBadge v-if="overviews.length >= 3" color="warning" variant="subtle">Maximaal 3 overzichten</UBadge>
       </div>
 
       <UAlert
@@ -38,14 +41,35 @@
         :title="error"
       />
 
-      <template v-if="pensionData">
-        <UAlert
-          color="success"
-          variant="subtle"
-          icon="i-heroicons-check-circle"
-          title="Pensioenoverzicht geladen"
-        />
+      <!-- List of loaded overviews -->
+      <div v-if="overviews.length > 0" class="space-y-2">
+        <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-dimmed)">Geladen overzichten</p>
+        <div
+          v-for="(overzicht, index) in overviews"
+          :key="index"
+          class="flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors cursor-pointer"
+          :class="selectedIndex === index
+            ? 'border-(--ui-primary) bg-(--ui-primary)/5'
+            : 'border-(--ui-border) hover:border-(--ui-border-hover)'"
+          @click="selectedIndex = index"
+        >
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-document-check" class="size-4 text-(--ui-primary)" />
+            <span class="text-sm font-medium text-(--ui-text-highlighted)">
+              {{ formatOverzichtLabel(overzicht) }}
+            </span>
+          </div>
+          <button
+            class="flex size-6 items-center justify-center rounded text-(--ui-text-dimmed) hover:text-red-500 transition-colors"
+            @click.stop="onRemove(index)"
+          >
+            <UIcon name="i-heroicons-trash" class="size-4" />
+          </button>
+        </div>
+      </div>
 
+      <!-- Detail tables for selected overview -->
+      <template v-if="selectedOverzicht">
         <div class="space-y-6">
           <div>
             <h4 class="mb-3 text-sm font-semibold uppercase tracking-wider text-(--ui-text-dimmed)">AOW (jaarlijks bruto)</h4>
@@ -71,16 +95,6 @@
             <UTable :data="providerTableData" :columns="providerColumns" />
           </div>
         </div>
-
-        <div class="pt-2">
-          <UButton
-            color="error"
-            variant="soft"
-            icon="i-heroicons-trash"
-            label="Pensioengegevens wissen"
-            @click="onClear"
-          />
-        </div>
       </template>
     </div>
   </UCard>
@@ -90,6 +104,7 @@
 import type { TableColumn } from '@nuxt/ui'
 import { usePensionStore } from '~/stores/pension'
 import { isLeeftijdsGrens } from '~/types/pensioenoverzicht'
+import { deriveIngangsdatum } from '~/domain/pension-overview'
 
 const props = withDefaults(defineProps<{ person?: 'primary' | 'partner' }>(), { person: 'primary' })
 
@@ -101,7 +116,7 @@ const isPartner = computed(() => props.person === 'partner')
 const title = computed(() =>
   isPartner.value ? 'Pensioenoverzicht partner uploaden' : 'Pensioenoverzicht uploaden'
 )
-const pensionData = computed(() =>
+const overviews = computed(() =>
   isPartner.value ? store.partnerPensionData : store.pensionData
 )
 const isLoading = computed(() =>
@@ -111,6 +126,17 @@ const error = computed(() =>
   isPartner.value ? store.partnerError : store.error
 )
 
+const selectedIndex = ref(0)
+
+// Reset selection when list changes
+watch(() => overviews.value.length, () => {
+  if (selectedIndex.value >= overviews.value.length) {
+    selectedIndex.value = Math.max(0, overviews.value.length - 1)
+  }
+})
+
+const selectedOverzicht = computed(() => overviews.value[selectedIndex.value] ?? null)
+
 async function handleUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -119,13 +145,17 @@ async function handleUpload(event: Event) {
   } else {
     await store.uploadPensionFile(file)
   }
+  // Select the newly uploaded overview
+  selectedIndex.value = overviews.value.length - 1
+  // Reset file input so the same file can be re-uploaded
+  ;(event.target as HTMLInputElement).value = ''
 }
 
-function onClear() {
+function onRemove(index: number) {
   if (isPartner.value) {
-    store.clearPartner()
+    store.removePartnerPensionFile(index)
   } else {
-    store.clear()
+    store.removePensionFile(index)
   }
 }
 
@@ -134,8 +164,17 @@ function formatLeeftijd(jaren: number, maanden: number): string {
   return `${jaren} jaar en ${maanden} maanden`
 }
 
+function formatOverzichtLabel(overzicht: typeof overviews.value[0]): string {
+  try {
+    const age = deriveIngangsdatum(overzicht)
+    return `Vanaf ${formatLeeftijd(age.years, age.months)}`
+  } catch {
+    return 'Onbekende ingangsdatum'
+  }
+}
+
 const aow = computed(() => {
-  const regel = pensionData.value?.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
+  const regel = selectedOverzicht.value?.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
     .find(r => r.AOWSamenwonend != null)
   return {
     samenwonend: regel?.AOWSamenwonend ?? 0,
@@ -151,7 +190,7 @@ const pensionColumns: TableColumn[] = [
 ]
 
 const pensionTableData = computed(() =>
-  (pensionData.value?.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal ?? []).map((regel) => {
+  (selectedOverzicht.value?.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal ?? []).map((regel) => {
     const van = isLeeftijdsGrens(regel.Van)
       ? formatLeeftijd(regel.Van.Leeftijd.Jaren, regel.Van.Leeftijd.Maanden)
       : '—'
@@ -176,7 +215,7 @@ const providerColumns: TableColumn[] = [
 ]
 
 const providerTableData = computed(() => {
-  const periodes = pensionData.value?.Details.OuderdomsPensioenDetails.OuderdomsPensioen ?? []
+  const periodes = selectedOverzicht.value?.Details.OuderdomsPensioenDetails.OuderdomsPensioen ?? []
   const seen = new Set<string>()
   const rows: { name: string; amount: string; startAge: string }[] = []
 

@@ -12,35 +12,37 @@
     </div>
 
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-      <ScenariosScenarioSelector />
-      <ScenariosScenarioComparison />
+      <!-- Info alert when overviews are loaded -->
+      <UAlert
+        v-if="pensionStore.pensionData.length > 0"
+        color="info"
+        variant="subtle"
+        icon="i-heroicons-information-circle"
+        title="De uitkeringsbedragen in uw pensioenoverzicht zijn afhankelijk van de gekozen ingangsdatum. Download voor elke pensioenleeftijd een apart overzicht via mijnpensioenoverzicht.nl voor de meest nauwkeurige berekening."
+      />
+
+      <!-- Empty state -->
+      <div v-if="scenarioStore.scenarios.length === 0" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-(--ui-border) py-16 text-center">
+        <div class="flex size-14 items-center justify-center rounded-full bg-(--ui-bg-elevated)">
+          <UIcon name="i-heroicons-document-arrow-up" class="size-7 text-(--ui-text-dimmed)" />
+        </div>
+        <h3 class="mt-4 text-base font-semibold text-(--ui-text-highlighted)">Geen scenario's beschikbaar</h3>
+        <p class="mt-1 text-sm text-(--ui-text-muted)">Upload pensioenoverzichten op de <NuxtLink to="/income" class="text-(--ui-primary) underline underline-offset-2">inkomenspagina</NuxtLink> om automatisch scenario's te genereren.</p>
+      </div>
+
+      <ScenariosScenarioComparison v-if="scenarioStore.scenarios.length > 0" />
       <ScenariosTimelineChart
         v-if="scenarioStore.scenarios.length > 0"
         :scenarios="scenarioStore.scenarios"
       />
-
-      <div v-if="scenarioStore.scenarios.length > 1" class="flex gap-3">
-        <UButton
-          color="error"
-          variant="soft"
-          icon="i-heroicons-trash"
-          label="Alle scenario's wissen"
-          @click="scenarioStore.clearScenarios()"
-        />
-        <UButton
-          color="primary"
-          variant="soft"
-          icon="i-heroicons-arrow-path"
-          label="Herberekenen"
-          @click="scenarioStore.refreshScenarios()"
-        />
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useScenarioStore } from '~/stores/scenarios'
+import { usePensionStore } from '~/stores/pension'
 
 const scenarioStore = useScenarioStore()
+const pensionStore = usePensionStore()
 </script>

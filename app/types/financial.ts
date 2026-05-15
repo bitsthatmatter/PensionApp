@@ -36,6 +36,15 @@ export interface FinancialStream {
   endAge?: Age
 }
 
+export interface SupplementPeriod {
+  /** Start age (inclusive). */
+  fromAge: Age
+  /** End age (exclusive). If absent, the period runs to end of timeline or until savings run out. */
+  toAge?: Age
+  /** Desired total gross monthly income in euros. The supplement is max(0, targetIncome − regularIncome). */
+  targetIncome: number
+}
+
 export type RecurringType = 'once' | 'monthly' | 'yearly'
 
 export interface BudgetedCost {

@@ -229,3 +229,141 @@ describe('projectRetirementTimeline', () => {
     expect(timeline[0]!.cumulativeSavings).toBe(50000)
   })
 })
+
+describe('projectRetirementTimeline — supplementPeriods', () => {
+  it('tops up income to targetIncome when savings are available', () => {
+    // Pension of 2000/month from age 67; targetIncome 3000 → supplement 1000/month
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 67, months: 0 },
+      endAge: 68,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 100000 },
+      ],
+      pensionData: makePensioenoverzicht({ pensionAnnual: 24000, pensionFromAge: { years: 67, months: 0 } }),
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, targetIncome: 3000 },
+      ],
+    }))
+
+    const atRetirement = timeline.find(s => s.age.years === 67 && s.age.months === 0)!
+    expect(atRetirement.totalIncome).toBe(3000)
+  })
+
+  it('supplement is dynamic: adjusts when regular income changes (e.g. AOW starts)', () => {
+    // Pension 2000/month from 67; AOW 1500/month from 67y3m; targetIncome 3500
+    // Before AOW: supplement = 3500 - 2000 = 1500
+    // After AOW:  supplement = 3500 - (2000 + 1500) = 0
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 67, months: 0 },
+      aowAge: { years: 67, months: 3 },
+      endAge: 68,
+      hasPartner: false,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 200000 },
+      ],
+      pensionData: makePensioenoverzicht({
+        pensionAnnual: 24000,
+        pensionFromAge: { years: 67, months: 0 },
+        aowAlleenstaand: 18000,
+      }),
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, targetIncome: 3500 },
+      ],
+    }))
+
+    const beforeAow = timeline.find(s => s.age.years === 67 && s.age.months === 1)!
+    expect(beforeAow.totalIncome).toBe(3500)
+
+    // After AOW: regular income = 2000 + 1500 = 3500, supplement = 0
+    const afterAow = timeline.find(s => s.age.years === 67 && s.age.months === 6)!
+    expect(afterAow.totalIncome).toBe(3500) // same total, but no supplement needed
+  })
+
+  it('supplement stops when cumulativeSavings reaches zero', () => {
+    // Use a DOB that puts current age just before retirement so the timeline
+    // starts close to 67 and the lump sum isn't drained before we get there.
+    // DOB 1959-01-15 → current age ~67y4m in 2026, so timeline starts at 67y4m.
+    // Lump sum 500, expenses 2000/month, supplement target 1000.
+    // At 67y4m: cumulativeSavings=500>0, supplement=1000, income=1000, expenses=2000, net=-1000 → cumSavings=-500
+    // At 67y5m: cumulativeSavings=-500<=0, no supplement, income=0
+    const timeline = projectRetirementTimeline({
+      dateOfBirth: '1959-01-15',
+      retirementAge: { years: 67, months: 0 },
+      aowAge: { years: 67, months: 3 },
+      hasPartner: false,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 500 },
+      ],
+      expenseStreams: [
+        { id: 'exp', type: 'expense', label: 'Kosten', monthlyAmount: -2000 },
+      ],
+      budgetedCosts: [],
+      pensionData: null,
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, targetIncome: 1000 },
+      ],
+      endAge: 68,
+    })
+
+    // First snapshot: savings=500>0, supplement applied
+    const firstSnap = timeline[0]!
+    expect(firstSnap.totalIncome).toBe(1000)
+
+    // Second snapshot: savings went negative, no supplement
+    const secondSnap = timeline[1]!
+    expect(secondSnap.totalIncome).toBe(0)
+  })
+
+  it('open-ended period (no toAge) runs until end of timeline', () => {
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 67, months: 0 },
+      endAge: 68,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 1000000 },
+      ],
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, targetIncome: 2000 },
+      ],
+    }))
+
+    const lastSnapshot = timeline[timeline.length - 1]!
+    expect(lastSnapshot.totalIncome).toBe(2000)
+  })
+
+  it('period with toAge stops supplement at that age', () => {
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 67, months: 0 },
+      endAge: 68,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 1000000 },
+      ],
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, toAge: { years: 67, months: 6 }, targetIncome: 2000 },
+      ],
+    }))
+
+    const withinPeriod = timeline.find(s => s.age.years === 67 && s.age.months === 3)!
+    const afterPeriod = timeline.find(s => s.age.years === 67 && s.age.months === 6)!
+
+    expect(withinPeriod.totalIncome).toBe(2000)
+    expect(afterPeriod.totalIncome).toBe(0) // no supplement, no other income
+  })
+
+  it('does not supplement when regular income already meets targetIncome', () => {
+    // Pension 3000/month, targetIncome 2000 → no supplement needed
+    const timeline = projectRetirementTimeline(makeInput({
+      retirementAge: { years: 67, months: 0 },
+      endAge: 68,
+      streams: [
+        { id: 'savings', type: 'savings', label: 'Spaargeld', monthlyAmount: 0, lumpSum: 100000 },
+      ],
+      pensionData: makePensioenoverzicht({ pensionAnnual: 36000, pensionFromAge: { years: 67, months: 0 } }),
+      supplementPeriods: [
+        { fromAge: { years: 67, months: 0 }, targetIncome: 2000 },
+      ],
+    }))
+
+    const atRetirement = timeline.find(s => s.age.years === 67 && s.age.months === 0)!
+    expect(atRetirement.totalIncome).toBe(3000) // no supplement added
+  })
+})

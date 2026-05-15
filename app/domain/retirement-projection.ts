@@ -1,5 +1,5 @@
 import { Temporal } from 'temporal-polyfill'
-import type { Age, FinancialStream, BudgetedCost } from '~/types/financial'
+import type { Age, FinancialStream, BudgetedCost, SupplementPeriod } from '~/types/financial'
 import type { Pensioenoverzicht } from '~/types/pensioenoverzicht'
 import { isLeeftijdsGrens } from '~/types/pensioenoverzicht'
 import { ageToMonths, monthsToAge, addMonthsToDate, ageAtDate } from '~/domain/age'
@@ -23,6 +23,7 @@ export interface RetirementScenario {
   label: string
   retirementAge: Age
   timeline: MonthSnapshot[]
+  supplementPeriods: SupplementPeriod[]
 }
 
 export interface ProjectionInput {
@@ -36,6 +37,10 @@ export interface ProjectionInput {
   expenseStreams: FinancialStream[]
   budgetedCosts: BudgetedCost[]
   pensionData: Pensioenoverzicht | null
+  /** Partner pension data. Reserved for future use — not yet used in cashflow. */
+  partnerPensionData?: Pensioenoverzicht | null
+  /** Periods during which savings are drawn to top up income to a target amount. */
+  supplementPeriods?: SupplementPeriod[]
   endAge?: number
 }
 
@@ -49,6 +54,7 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     expenseStreams,
     budgetedCosts,
     pensionData,
+    supplementPeriods = [],
     endAge = 95,
   } = input
 
@@ -147,6 +153,20 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
             totalExpenses += cost.amount
           }
         }
+      }
+    }
+
+    // Apply supplement: draw from savings to top up income to targetIncome.
+    // Only draw if cumulativeSavings > 0 before this month's supplement.
+    if (supplementPeriods.length > 0 && cumulativeSavings > 0) {
+      const activePeriod = supplementPeriods.find(p => {
+        const fromMonths = ageToMonths(p.fromAge)
+        const toMonths = p.toAge ? ageToMonths(p.toAge) : Infinity
+        return ageMonth >= fromMonths && ageMonth < toMonths
+      })
+      if (activePeriod) {
+        const supplement = Math.max(0, activePeriod.targetIncome - totalIncome)
+        totalIncome += supplement
       }
     }
 

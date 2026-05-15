@@ -80,7 +80,7 @@
           </div>
           <div class="min-w-0">
             <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Pensioenoverzicht</p>
-            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.partnerPensionData ? 'Geladen' : 'Niet geladen' }}</p>
+            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.partnerPensionData.length > 0 ? `${pensionStore.partnerPensionData.length} geladen` : 'Niet geladen' }}</p>
           </div>
         </div>
       </div>
