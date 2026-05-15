@@ -1,7 +1,7 @@
 import { Temporal } from 'temporal-polyfill'
 import { defineStore } from 'pinia'
 import type { Age, UserProfile } from '~/types/financial'
-import { ageAtDate as ageAtDateUtil } from '~/domain/age'
+import { ageAtDate as ageAtDateUtil, dateAtAge as dateAtAgeUtil } from '~/domain/age'
 
 const STORAGE_KEY = 'retirement-planner-profile'
 
@@ -36,7 +36,7 @@ export const useProfileStore = defineStore('profile', () => {
   }
 
   function dateAtAge(dob: string, age: Age): string {
-    return Temporal.PlainDate.from(dob).add({ years: age.years, months: age.months }).toString()
+    return dateAtAgeUtil(dob, age)
   }
 
   const currentAge = computed(() => {

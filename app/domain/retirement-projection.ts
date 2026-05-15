@@ -4,12 +4,17 @@ import type { Pensioenoverzicht } from '~/types/pensioenoverzicht'
 import { isLeeftijdsGrens } from '~/types/pensioenoverzicht'
 import { ageToMonths, monthsToAge, addMonthsToDate, ageAtDate } from '~/domain/age'
 
+/** All monetary fields are in euros (floating-point). */
 export interface MonthSnapshot {
   date: string
   age: Age
+  /** Gross monthly income (€). */
   totalIncome: number
+  /** Total monthly expenses (€). */
   totalExpenses: number
+  /** totalIncome − totalExpenses (€). */
   netCashflow: number
+  /** Running sum of netCashflow from projection start (€). */
   cumulativeSavings: number
 }
 
@@ -87,9 +92,9 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
       const totaalRegels = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
       const matchingPeriod = totaalRegels.find(p => {
         if (!isLeeftijdsGrens(p.Van)) return false
-        const fromMonths = p.Van.Leeftijd.Jaren * 12 + p.Van.Leeftijd.Maanden
+        const fromMonths = ageToMonths({ years: p.Van.Leeftijd.Jaren, months: p.Van.Leeftijd.Maanden })
         const toMonths = isLeeftijdsGrens(p.Tot)
-          ? p.Tot.Leeftijd.Jaren * 12 + p.Tot.Leeftijd.Maanden
+          ? ageToMonths({ years: p.Tot.Leeftijd.Jaren, months: p.Tot.Leeftijd.Maanden })
           : Infinity
         return ageMonth >= fromMonths && ageMonth < toMonths
       })
@@ -103,8 +108,16 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
       // samenwonend is the per-person AOW rate for cohabitants; alleenstaand for singles.
       // The partner's own AOW entitlement is not added here — this projection models
       // the primary person's individual cashflow only.
-      const aowPeriod = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
-        .find(p => p.AOWSamenwonend != null)
+      const totaalRegels = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
+      const aowPeriod = totaalRegels.find(p => {
+        if (p.AOWSamenwonend == null) return false
+        if (!isLeeftijdsGrens(p.Van)) return false
+        const fromMonths = ageToMonths({ years: p.Van.Leeftijd.Jaren, months: p.Van.Leeftijd.Maanden })
+        const toMonths = isLeeftijdsGrens(p.Tot)
+          ? ageToMonths({ years: p.Tot.Leeftijd.Jaren, months: p.Tot.Leeftijd.Maanden })
+          : Infinity
+        return ageMonth >= fromMonths && ageMonth < toMonths
+      })
       const aowAnnual = hasPartner
         ? (aowPeriod?.AOWSamenwonend ?? 0)
         : (aowPeriod?.AOWAlleenstaand ?? 0)

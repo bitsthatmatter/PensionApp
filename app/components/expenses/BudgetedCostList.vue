@@ -43,6 +43,7 @@
 
     <ExpensesBudgetedCostForm
       v-if="showForm"
+      :key="editingCost?.id ?? 'new'"
       v-model:open="showForm"
       :editing="editingCost"
       @save="handleSave"

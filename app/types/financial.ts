@@ -26,7 +26,9 @@ export interface FinancialStream {
   id: string
   type: StreamType
   label: string
+  /** Monthly amount in euros. Positive for income types; positive (as entered) for expenses. */
   monthlyAmount: number
+  /** One-time amount in euros (savings, loan, stocks). */
   lumpSum?: number
   startDate?: string
   endDate?: string
@@ -39,6 +41,7 @@ export type RecurringType = 'once' | 'monthly' | 'yearly'
 export interface BudgetedCost {
   id: string
   label: string
+  /** Cost magnitude in euros. Always positive. */
   amount: number
   recurring: RecurringType
   date: string

@@ -6,15 +6,24 @@
  */
 
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   calculateAllScenarios,
-  formatEurocents,
-  euroToEurocents,
   remainingLifeExpectancy,
   type Gender,
   type AnnuityResult,
 } from '~/domain/annuity-domain'
+import { euroToEurocents } from '~/domain/money'
+import { useFormatting } from '~/composables/useFormatting'
+
+const STORAGE_KEY = 'retirement-planner-annuity'
+
+interface PersistedAnnuityState {
+  capitalEuro: number
+  retirementAge: number
+  gender: Gender
+  customDiscountRate: number | null
+}
 
 export const useAnnuityStore = defineStore('annuity', () => {
 
@@ -36,6 +45,35 @@ export const useAnnuityStore = defineStore('annuity', () => {
    * null = alleen standaardscenario's tonen.
    */
   const customDiscountRate = ref<number | null>(null)
+
+  // -------------------------------------------------------------------------
+  // Persistence
+  // -------------------------------------------------------------------------
+
+  function load() {
+    if (import.meta.server) return
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as PersistedAnnuityState
+        capitalEuro.value = parsed.capitalEuro ?? 200_000
+        retirementAge.value = parsed.retirementAge ?? 67
+        gender.value = parsed.gender ?? 'male'
+        customDiscountRate.value = parsed.customDiscountRate ?? null
+      } catch { /* ignore corrupt data */ }
+    }
+  }
+
+  function save() {
+    if (import.meta.server) return
+    const state: PersistedAnnuityState = {
+      capitalEuro: capitalEuro.value,
+      retirementAge: retirementAge.value,
+      gender: gender.value,
+      customDiscountRate: customDiscountRate.value,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }
 
   // -------------------------------------------------------------------------
   // Computed: afgeleid uit state
@@ -66,6 +104,8 @@ export const useAnnuityStore = defineStore('annuity', () => {
   const lifeExpectancy = computed(() =>
     remainingLifeExpectancy(retirementAge.value, gender.value),
   )
+
+  const { formatEurocents } = useFormatting()
 
   /** Geformatteerde weergave van het kapitaal */
   const capitalFormatted = computed(() => formatEurocents(capitalEurocents.value))
@@ -102,6 +142,10 @@ export const useAnnuityStore = defineStore('annuity', () => {
   function clearCustomDiscountRate() {
     customDiscountRate.value = null
   }
+
+  load()
+
+  watch([capitalEuro, retirementAge, gender, customDiscountRate], save)
 
   return {
     // state (readonly via store interface)

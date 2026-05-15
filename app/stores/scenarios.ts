@@ -20,6 +20,14 @@ export const useScenarioStore = defineStore('scenarios', () => {
     const dob = profileStore.profile.dateOfBirth
     if (!dob) return []
 
+    // When a transaction-derived baseline is set, inject it as a synthetic
+    // expense stream so the projection engine picks it up. This stream has no
+    // start/end date, so it applies across the entire timeline.
+    const baseline = financialStore.monthlyExpenseBaseline
+    const baselineStream = baseline !== null
+      ? [{ id: '__baseline__', type: 'expense' as const, label: 'Maandelijkse uitgaven (analyse)', monthlyAmount: baseline }]
+      : []
+
     return projectRetirementTimeline({
       dateOfBirth: dob,
       retirementAge,
@@ -27,7 +35,7 @@ export const useScenarioStore = defineStore('scenarios', () => {
       hasPartner: profileStore.profile.hasPartner,
       partnerDateOfBirth: profileStore.profile.partnerDateOfBirth,
       streams: financialStore.streams,
-      expenseStreams: financialStore.expenseStreams,
+      expenseStreams: [...financialStore.expenseStreams, ...baselineStream],
       budgetedCosts: financialStore.budgetedCosts,
       pensionData: pensionStore.pensionData,
       endAge,

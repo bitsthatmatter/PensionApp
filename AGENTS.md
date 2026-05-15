@@ -11,7 +11,7 @@ Users upload a MijnPensioenoverzicht JSON file, enter income/expense streams, an
 
 Key characteristics:
 - All computation is **client-side only** — no backend, no API calls.
-- Financial amounts are stored and computed in **eurocents** (integers). Convert to euros only for display.
+- Financial amounts use **two distinct unit conventions** depending on the subsystem (see Coding conventions below).
 - Domain logic lives in `app/domain/`. Stores in `app/stores/` are thin wrappers that wire domain functions to reactive state.
 - UI is Dutch-language throughout (`nl-NL` locale).
 
@@ -81,9 +81,8 @@ pnpm lint:fix       # ESLint with auto-fix
 
 ### Domain layer (`app/domain/`)
 - Must be **pure functions** — no Vue reactivity, no store imports, no side effects.
-- All financial calculations use **eurocents** (integer arithmetic). Never pass raw euro floats into domain functions.
-- `annuity-domain.ts` — actuarial annuity factor, AG2024 mortality tables, scenario calculations.
-- `retirement-projection.ts` — month-by-month cashflow projection engine.
+- `annuity-domain.ts` — actuarial annuity factor, AG2024 mortality tables, scenario calculations. Uses **eurocents** (integer arithmetic) for all capital and benefit amounts.
+- `retirement-projection.ts` — month-by-month cashflow projection engine. Uses **euros** (floating-point) throughout: `FinancialStream.monthlyAmount`, `BudgetedCost.amount`, pension JSON amounts, and all `MonthSnapshot` fields are in euros.
 - `age.ts` — `Age` type helpers (`ageToMonths`, `monthsToAge`, `ageAtDate`, `addMonthsToDate`).
 - Every domain file with non-trivial logic **must have a co-located `.test.ts` file**. Non-trivial means: any function with branching logic, financial arithmetic, or date math.
 
@@ -118,7 +117,9 @@ annuity  (standalone — no store dependencies)
 
 ## Coding conventions
 
-- **Eurocents everywhere**: domain functions accept and return eurocents. Display helpers (`formatEurocents`, `useFormatting`) convert for the UI.
+- **Two unit conventions — do not mix them:**
+  - **Eurocents** (`annuity-domain.ts` and `annuity` store): capital and benefit amounts are integers in eurocents. `euroToEurocents` converts on input; `formatEurocents` / `useFormatting.formatCurrency` convert for display.
+  - **Euros** (`retirement-projection.ts`, `FinancialStream`, `BudgetedCost`, `financial` store): all amounts are floating-point euros. `useFormatting.formatCurrency` formats them directly. The pension JSON (annual euros) is divided by 12 inside the projection engine — no unit conversion needed.
 - **Dutch labels**: user-facing strings are in Dutch. Code identifiers, comments, and this file are in English.
 - **No `any`**: avoid TypeScript `any`. Use `unknown` and narrow explicitly.
 - **ID generation**: use `Math.random().toString(36).slice(2, 9)` (see `scenarios.ts`) — no external UUID library.
@@ -203,6 +204,6 @@ Expected columns (Dutch headers):
 - Do not add a backend or server routes unless explicitly requested.
 - Do not introduce new npm packages without checking `package.json` first and confirming the addition is necessary.
 - Do not store sensitive data (PII, financial data) anywhere other than `localStorage` — there is no server.
-- Do not change the eurocent convention to floating-point euros in domain functions.
+- Do not change the eurocent convention in `annuity-domain.ts` to floating-point euros — actuarial calculations require integer arithmetic to avoid rounding drift.
 - Do not commit `node_modules`, `.nuxt`, `.output`, or `.data`.
 - Do not model the partner's AOW as additional income in the projection — `samenwonend` is the per-person rate for cohabitants; the projection models the primary person's cashflow only.

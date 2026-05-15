@@ -14,13 +14,12 @@
 
     <div class="space-y-4">
       <div class="flex items-center gap-3">
-        <button
-          class="inline-flex items-center gap-3 rounded-full bg-(--ui-primary) px-5 py-2.5 text-sm font-semibold text-[#163300] transition-all hover:scale-105 active:scale-95"
+        <UButton
+          color="primary"
+          icon="i-heroicons-arrow-up-tray"
+          label="Bestand kiezen"
           @click="($refs.fileInput as HTMLInputElement).click()"
-        >
-          <UIcon name="i-heroicons-arrow-up-tray" class="size-5" />
-          Bestand kiezen
-        </button>
+        />
         <input
           ref="fileInput"
           type="file"

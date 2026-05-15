@@ -3,10 +3,13 @@ import type { BudgetedCost, FinancialStream } from '~/types/financial'
 
 const STREAMS_KEY = 'retirement-planner-streams'
 const COSTS_KEY = 'retirement-planner-costs'
+const BASELINE_KEY = 'retirement-planner-expense-baseline'
 
 export const useFinancialStore = defineStore('financial', () => {
   const streams = ref<FinancialStream[]>([])
   const budgetedCosts = ref<BudgetedCost[]>([])
+  /** Monthly expense baseline in euros. null = not set (no override). */
+  const monthlyExpenseBaseline = ref<number | null>(null)
 
   function load() {
     if (import.meta.server) return
@@ -18,6 +21,10 @@ export const useFinancialStore = defineStore('financial', () => {
     if (savedCosts) {
       try { budgetedCosts.value = JSON.parse(savedCosts) } catch { /* ignore corrupt data */ }
     }
+    const savedBaseline = localStorage.getItem(BASELINE_KEY)
+    if (savedBaseline) {
+      try { monthlyExpenseBaseline.value = JSON.parse(savedBaseline) } catch { /* ignore corrupt data */ }
+    }
   }
 
   function saveStreams() {
@@ -28,6 +35,19 @@ export const useFinancialStore = defineStore('financial', () => {
   function saveCosts() {
     if (import.meta.server) return
     localStorage.setItem(COSTS_KEY, JSON.stringify(budgetedCosts.value))
+  }
+
+  function saveBaseline() {
+    if (import.meta.server) return
+    if (monthlyExpenseBaseline.value !== null) {
+      localStorage.setItem(BASELINE_KEY, JSON.stringify(monthlyExpenseBaseline.value))
+    } else {
+      localStorage.removeItem(BASELINE_KEY)
+    }
+  }
+
+  function setMonthlyExpenseBaseline(value: number | null) {
+    monthlyExpenseBaseline.value = value
   }
 
   function addStream(stream: FinancialStream) {
@@ -72,10 +92,12 @@ export const useFinancialStore = defineStore('financial', () => {
 
   watch(streams, saveStreams, { deep: true })
   watch(budgetedCosts, saveCosts, { deep: true })
+  watch(monthlyExpenseBaseline, saveBaseline)
 
   return {
     streams,
     budgetedCosts,
+    monthlyExpenseBaseline,
     incomeStreams,
     expenseStreams,
     addStream,
@@ -84,5 +106,6 @@ export const useFinancialStore = defineStore('financial', () => {
     addBudgetedCost,
     updateBudgetedCost,
     removeBudgetedCost,
+    setMonthlyExpenseBaseline,
   }
 })

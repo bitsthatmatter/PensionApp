@@ -60,9 +60,9 @@
 </template>
 
 <script setup lang="ts">
-import type { Age } from '~/types/financial'
 import { useScenarioStore } from '~/stores/scenarios'
 import { useProfileStore } from '~/stores/profile'
+import { monthsToAge } from '~/domain/age'
 
 const scenarioStore = useScenarioStore()
 const profileStore = useProfileStore()
@@ -72,10 +72,7 @@ const minMonths = 55 * 12
 const maxMonths = 70 * 12
 const selectedMonths = ref(62 * 12)
 
-const selectedAge = computed<Age>(() => ({
-  years: Math.floor(selectedMonths.value / 12),
-  months: selectedMonths.value % 12,
-}))
+const selectedAge = computed(() => monthsToAge(selectedMonths.value))
 
 function addScenario() {
   scenarioStore.addScenario(selectedAge.value)

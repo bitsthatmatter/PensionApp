@@ -19,3 +19,8 @@ export function ageAtDate(dob: string, date: string): Age {
   const diff = birth.until(target, { largestUnit: 'years' })
   return { years: diff.years, months: diff.months }
 }
+
+/** Returns the ISO date on which someone born on `dob` reaches `age`. */
+export function dateAtAge(dob: string, age: Age): string {
+  return Temporal.PlainDate.from(dob).add({ years: age.years, months: age.months }).toString()
+}

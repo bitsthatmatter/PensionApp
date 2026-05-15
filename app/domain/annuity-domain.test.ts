@@ -15,8 +15,6 @@ import {
   remainingLifeExpectancy,
   calculateAllScenarios,
   STANDARD_SCENARIOS,
-  formatEurocents,
-  euroToEurocents,
 } from './annuity-domain'
 
 // ---------------------------------------------------------------------------
@@ -194,20 +192,4 @@ describe('STANDARD_SCENARIOS', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Hulpfuncties
-// ---------------------------------------------------------------------------
-describe('formatEurocents', () => {
-  it('formatteert correct naar euro-notatie', () => {
-    // Intl.NumberFormat uses a non-breaking space (U+00A0) between € and the number
-    expect(formatEurocents(100_000)).toBe('€\u00a01.000')
-    expect(formatEurocents(1_234_500)).toBe('€\u00a012.345')
-  })
-})
 
-describe('euroToEurocents', () => {
-  it('converteert correct', () => {
-    expect(euroToEurocents(1000)).toBe(100_000)
-    expect(euroToEurocents(1.5)).toBe(150)
-  })
-})
