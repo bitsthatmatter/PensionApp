@@ -90,6 +90,15 @@
         </div>
       </div>
 
+      <!-- Total savings balance (shown only when there are multiple savings/loan streams) -->
+      <div
+        v-if="accountStreams.length > 1"
+        class="flex items-center justify-between px-4 py-3 bg-(--ui-bg-elevated) border-b border-(--ui-border)"
+      >
+        <span class="text-sm font-medium text-(--ui-text-muted)">Totaal spaarsaldo (incl. opgebouwde rente)</span>
+        <span class="font-semibold text-(--ui-text-highlighted)">{{ formatCurrency(totalSavings) }}</span>
+      </div>
+
       <!-- Table for all other streams -->
       <UTable v-if="tableData.length > 0" :data="tableData" :columns="columns">
         <template #type-cell="{ row }">
@@ -189,6 +198,15 @@ function accruedInterest(s: FinancialStream): number | null {
 // Streams with account details rendered as cards
 const accountStreams = computed(() =>
   financialStore.streams.filter(s => ['savings', 'loan'].includes(s.type))
+)
+
+// Sum of lumpSum + accrued interest across all savings/loan streams
+const totalSavings = computed(() =>
+  accountStreams.value.reduce((sum, s) => {
+    const base = s.lumpSum ?? 0
+    const interest = accruedInterest(s) ?? 0
+    return sum + base + interest
+  }, 0)
 )
 
 // All other streams rendered in the table
