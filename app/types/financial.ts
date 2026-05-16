@@ -58,8 +58,18 @@ export interface PensionPeriodAmount {
   netAfterAow: number
 }
 
+export interface PensionEmployer {
+  id: string
+  /** Display name, e.g. 'Werkgever A' */
+  label: string
+  amounts: PensionPeriodAmount
+}
+
 export interface PensionScenarioEntry {
   retirementAge: Age
+  /** Per-employer breakdown. The projection engine receives the summed `amounts`. */
+  employers: PensionEmployer[]
+  /** Aggregate of all employer amounts — derived, kept in sync by the store. */
   amounts: PensionPeriodAmount
 }
 
