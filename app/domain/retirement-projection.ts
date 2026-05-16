@@ -6,7 +6,9 @@ import { ageToMonths, monthsToAge, addMonthsToDate, ageAtDate } from '~/domain/a
 export interface MonthSnapshot {
   date: string
   age: Age
-  /** Gross monthly income (€). */
+  /** Gross monthly income before any supplement draw (€). */
+  baseIncome: number
+  /** Gross monthly income including any supplement draw (€). */
   totalIncome: number
   /** Total monthly expenses (€). */
   totalExpenses: number
@@ -14,6 +16,8 @@ export interface MonthSnapshot {
   netCashflow: number
   /** Running sum of netCashflow from projection start (€). */
   cumulativeSavings: number
+  /** Amount drawn from savings as supplement this month (€). */
+  supplementDrawn: number
 }
 
 export interface RetirementScenario {
@@ -128,8 +132,11 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
       }
     }
 
+    const baseIncome = totalIncome
+
     // Apply supplement: draw from savings to top up income to targetIncome.
     // Only draw if cumulativeSavings > 0 before this month's supplement.
+    let supplementDrawn = 0
     if (supplementPeriods.length > 0 && cumulativeSavings > 0) {
       const activePeriod = supplementPeriods.find(p => {
         const fromMonths = ageToMonths(p.fromAge)
@@ -137,8 +144,8 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
         return ageMonth >= fromMonths && ageMonth < toMonths
       })
       if (activePeriod) {
-        const supplement = Math.max(0, activePeriod.targetIncome - totalIncome)
-        totalIncome += supplement
+        supplementDrawn = Math.max(0, activePeriod.targetIncome - totalIncome)
+        totalIncome += supplementDrawn
       }
     }
 
@@ -148,10 +155,12 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     timeline.push({
       date,
       age,
+      baseIncome,
       totalIncome,
       totalExpenses,
       netCashflow,
       cumulativeSavings,
+      supplementDrawn,
     })
   }
 

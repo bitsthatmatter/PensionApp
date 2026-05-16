@@ -49,7 +49,7 @@
             </button>
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 gap-2 items-end">
             <div class="space-y-1">
               <label class="text-xs text-(--ui-text-dimmed)">Vanaf (jaar)</label>
               <input
@@ -73,7 +73,7 @@
               >
             </div>
             <div class="space-y-1">
-              <label class="text-xs text-(--ui-text-dimmed)">Tot (jaar, leeg = open)</label>
+              <label class="text-xs text-(--ui-text-dimmed)">Tot jaar <span class="text-(--ui-text-muted)">(leeg = open)</span></label>
               <input
                 v-model.number="period._toYears"
                 type="number"
@@ -108,6 +108,13 @@
               class="w-full rounded border border-(--ui-border) bg-(--ui-bg) px-2 py-1 text-sm text-(--ui-text-highlighted) outline-none focus:border-(--ui-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               @change="onPeriodsChange"
             >
+          </div>
+
+          <div class="flex items-center justify-between gap-2 rounded-md bg-(--ui-bg-elevated) px-2 py-1.5">
+            <span class="text-xs text-(--ui-text-muted)">Benodigde spaarpot</span>
+            <span class="font-mono text-xs font-semibold text-orange-500">
+              {{ formatCurrency(periodSavingsNeeded[index] ?? 0) }}
+            </span>
           </div>
         </div>
 
@@ -196,13 +203,34 @@ const retirementSnapshot = computed(() => {
   ) ?? props.scenario.timeline[0]
 })
 
-const incomeAtRetirement = computed(() => retirementSnapshot.value?.totalIncome ?? 0)
+// Use baseIncome so supplement periods don't affect the displayed pension income
+const incomeAtRetirement = computed(() => retirementSnapshot.value?.baseIncome ?? 0)
 const expensesAtRetirement = computed(() => retirementSnapshot.value?.totalExpenses ?? 0)
-const netAtRetirement = computed(() => retirementSnapshot.value?.netCashflow ?? 0)
+const netAtRetirement = computed(() => {
+  const snap = retirementSnapshot.value
+  if (!snap) return 0
+  return snap.baseIncome - snap.totalExpenses
+})
 
 const savingsDepletedAge = computed(() => {
   const snap = props.scenario.timeline.find(s => s.cumulativeSavings <= 0)
   return snap?.age ?? null
+})
+
+// Total savings drawn per supplement period (sum of supplementDrawn over the period's months)
+const periodSavingsNeeded = computed(() => {
+  return localPeriods.value.map((period) => {
+    const fromMonths = period.fromAge.years * 12 + period.fromAge.months
+    const toMonths = period._toYears != null
+      ? period._toYears * 12 + (period._toMonths ?? 0)
+      : Infinity
+    return props.scenario.timeline
+      .filter(s => {
+        const m = s.age.years * 12 + s.age.months
+        return m >= fromMonths && m < toMonths
+      })
+      .reduce((sum, s) => sum + s.supplementDrawn, 0)
+  })
 })
 
 const metrics = computed(() => [
