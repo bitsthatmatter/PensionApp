@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import type { Age, PensionScenarioEntry } from '~/types/financial'
+import type { Age, PensionEmployer, PensionScenarioEntry } from '~/types/financial'
 
-const STORAGE_KEY = 'retirement-planner-pension-v2'
+const STORAGE_KEY = 'retirement-planner-pension-v3'
 
 const FIXED_AGES: Age[] = [
   { years: 62, months: 0 },
@@ -11,11 +11,37 @@ const FIXED_AGES: Age[] = [
   { years: 67, months: 3 },
 ]
 
-function defaultEntries(): PensionScenarioEntry[] {
-  return FIXED_AGES.map(age => ({
-    retirementAge: age,
+function newId(): string {
+  return Math.random().toString(36).slice(2, 9)
+}
+
+function defaultEmployer(): PensionEmployer {
+  return {
+    id: newId(),
+    label: 'Werkgever 1',
     amounts: { netBeforeAow: 0, netAfterAow: 0 },
-  }))
+  }
+}
+
+function sumAmounts(employers: PensionEmployer[]) {
+  return employers.reduce(
+    (acc, e) => ({
+      netBeforeAow: acc.netBeforeAow + (e.amounts.netBeforeAow || 0),
+      netAfterAow: acc.netAfterAow + (e.amounts.netAfterAow || 0),
+    }),
+    { netBeforeAow: 0, netAfterAow: 0 },
+  )
+}
+
+function defaultEntries(): PensionScenarioEntry[] {
+  return FIXED_AGES.map(age => {
+    const employers = [defaultEmployer()]
+    return {
+      retirementAge: age,
+      employers,
+      amounts: sumAmounts(employers),
+    }
+  })
 }
 
 function agesEqual(a: Age, b: Age): boolean {
@@ -32,10 +58,14 @@ export const usePensionStore = defineStore('pension', () => {
       try {
         const parsed = JSON.parse(saved) as PensionScenarioEntry[]
         if (Array.isArray(parsed)) {
-          // Merge saved amounts into the fixed entries (preserves order, adds new ages)
-          entries.value = defaultEntries().map((entry) => {
+          entries.value = defaultEntries().map(entry => {
             const match = parsed.find(p => agesEqual(p.retirementAge, entry.retirementAge))
-            return match ? { ...entry, amounts: match.amounts } : entry
+            if (!match) return entry
+            // Support both old format (no employers) and new format
+            const employers: PensionEmployer[] = Array.isArray(match.employers) && match.employers.length > 0
+              ? match.employers
+              : [{ id: newId(), label: 'Werkgever 1', amounts: match.amounts ?? { netBeforeAow: 0, netAfterAow: 0 } }]
+            return { ...entry, employers, amounts: sumAmounts(employers) }
           })
         }
       } catch { /* ignore corrupt data */ }
@@ -47,19 +77,61 @@ export const usePensionStore = defineStore('pension', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.value))
   }
 
-  function updateAmount(
+  function getEntry(retirementAge: Age): PensionScenarioEntry | undefined {
+    return entries.value.find(e => agesEqual(e.retirementAge, retirementAge))
+  }
+
+  function recompute(entry: PensionScenarioEntry) {
+    entry.amounts = sumAmounts(entry.employers)
+  }
+
+  function addEmployer(retirementAge: Age) {
+    const entry = getEntry(retirementAge)
+    if (!entry) return
+    const n = entry.employers.length + 1
+    entry.employers.push({
+      id: newId(),
+      label: `Werkgever ${n}`,
+      amounts: { netBeforeAow: 0, netAfterAow: 0 },
+    })
+    recompute(entry)
+    save()
+  }
+
+  function removeEmployer(retirementAge: Age, employerId: string) {
+    const entry = getEntry(retirementAge)
+    if (!entry || entry.employers.length <= 1) return
+    entry.employers = entry.employers.filter(e => e.id !== employerId)
+    recompute(entry)
+    save()
+  }
+
+  function updateEmployerLabel(retirementAge: Age, employerId: string, label: string) {
+    const entry = getEntry(retirementAge)
+    if (!entry) return
+    const employer = entry.employers.find(e => e.id === employerId)
+    if (!employer) return
+    employer.label = label
+    save()
+  }
+
+  function updateEmployerAmount(
     retirementAge: Age,
+    employerId: string,
     field: 'netBeforeAow' | 'netAfterAow',
     value: number,
   ) {
-    const entry = entries.value.find(e => agesEqual(e.retirementAge, retirementAge))
+    const entry = getEntry(retirementAge)
     if (!entry) return
-    entry.amounts[field] = value
+    const employer = entry.employers.find(e => e.id === employerId)
+    if (!employer) return
+    employer.amounts[field] = value
+    recompute(entry)
     save()
   }
 
   const filledCount = computed(() =>
-    entries.value.filter(e => e.amounts.netBeforeAow > 0 || e.amounts.netAfterAow > 0).length
+    entries.value.filter(e => e.amounts.netBeforeAow > 0 || e.amounts.netAfterAow > 0).length,
   )
 
   load()
@@ -68,6 +140,9 @@ export const usePensionStore = defineStore('pension', () => {
     entries,
     fixedAges: FIXED_AGES,
     filledCount,
-    updateAmount,
+    addEmployer,
+    removeEmployer,
+    updateEmployerLabel,
+    updateEmployerAmount,
   }
 })
