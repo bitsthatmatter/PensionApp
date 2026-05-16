@@ -51,6 +51,18 @@ export interface SupplementPeriod {
   targetIncome: number
 }
 
+export interface PensionPeriodAmount {
+  /** Net monthly amount before AOW age (€/mnd). */
+  netBeforeAow: number
+  /** Net monthly amount from AOW age onwards (€/mnd, includes AOW). */
+  netAfterAow: number
+}
+
+export interface PensionScenarioEntry {
+  retirementAge: Age
+  amounts: PensionPeriodAmount
+}
+
 export type RecurringType = 'once' | 'monthly' | 'yearly'
 
 export interface BudgetedCost {

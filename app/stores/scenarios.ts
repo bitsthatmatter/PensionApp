@@ -2,11 +2,12 @@ import { defineStore } from 'pinia'
 import type { Age, SupplementPeriod } from '~/types/financial'
 import type { RetirementScenario } from '~/domain/retirement-projection'
 import { projectRetirementTimeline } from '~/domain/retirement-projection'
-import { deriveIngangsdatum } from '~/domain/pension-overview'
 import { ageToMonths } from '~/domain/age'
 import { useProfileStore } from './profile'
 import { useFinancialStore } from './financial'
 import { usePensionStore } from './pension'
+
+const SUPPLEMENT_PERIODS_KEY = 'retirement-planner-supplement-periods'
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 9)
@@ -16,16 +17,36 @@ function agesEqual(a: Age, b: Age): boolean {
   return a.years === b.years && a.months === b.months
 }
 
+function ageKey(age: Age): string {
+  return `${age.years}-${age.months}`
+}
+
 export const useScenarioStore = defineStore('scenarios', () => {
   const scenarios = ref<RetirementScenario[]>([])
+  // Persisted map of ageKey → SupplementPeriod[]. Survives page reloads.
+  const savedPeriods = ref<Record<string, SupplementPeriod[]>>({})
   const profileStore = useProfileStore()
   const financialStore = useFinancialStore()
   const pensionStore = usePensionStore()
 
+  function loadSavedPeriods() {
+    if (import.meta.server) return
+    const raw = localStorage.getItem(SUPPLEMENT_PERIODS_KEY)
+    if (raw) {
+      try { savedPeriods.value = JSON.parse(raw) } catch { /* ignore corrupt data */ }
+    }
+  }
+
+  function savePeriods() {
+    if (import.meta.server) return
+    localStorage.setItem(SUPPLEMENT_PERIODS_KEY, JSON.stringify(savedPeriods.value))
+  }
+
+  loadSavedPeriods()
+
   function projectScenario(
     retirementAge: Age,
-    pensionData: RetirementScenario['timeline'] extends never ? never : Parameters<typeof projectRetirementTimeline>[0]['pensionData'],
-    partnerPensionData: Parameters<typeof projectRetirementTimeline>[0]['partnerPensionData'],
+    pensionAmounts: Parameters<typeof projectRetirementTimeline>[0]['pensionAmounts'],
     supplementPeriods: SupplementPeriod[],
   ): RetirementScenario['timeline'] {
     const dob = profileStore.profile.dateOfBirth
@@ -45,8 +66,7 @@ export const useScenarioStore = defineStore('scenarios', () => {
       streams: financialStore.streams,
       expenseStreams: [...financialStore.expenseStreams, ...baselineStream],
       budgetedCosts: financialStore.budgetedCosts,
-      pensionData,
-      partnerPensionData,
+      pensionAmounts,
       supplementPeriods,
     })
   }
@@ -55,42 +75,31 @@ export const useScenarioStore = defineStore('scenarios', () => {
     return `Pensioen bij ${retirementAge.years}${retirementAge.months > 0 ? ` jaar en ${retirementAge.months} mnd` : ' jaar'}`
   }
 
-  // Sync scenarios with the pension overviews list.
-  // - Add a new scenario for each new overview.
-  // - Update the timeline of existing scenarios (preserving supplementPeriods).
-  // - Remove scenarios whose overview was deleted.
+  // Sync scenarios with pension entries.
+  // - Entries with both amounts = 0 are skipped (no scenario generated).
+  // - Existing scenarios preserve their supplementPeriods.
+  // - Scenarios for removed/zeroed entries are removed.
   watch(
-    () => pensionStore.pensionData,
-    (overviews) => {
+    () => pensionStore.entries,
+    (entries) => {
       const newScenarios: RetirementScenario[] = []
 
-      for (const overzicht of overviews) {
-        let ingangsdatum: Age
-        try {
-          ingangsdatum = deriveIngangsdatum(overzicht)
-        } catch {
-          continue
-        }
+      for (const entry of entries) {
+        const { netBeforeAow, netAfterAow } = entry.amounts
+        if (netBeforeAow === 0 && netAfterAow === 0) continue
 
-        // Find matching partner overview (same ingangsdatum)
-        const partnerOverzicht = pensionStore.partnerPensionData.find(p => {
-          try {
-            return agesEqual(deriveIngangsdatum(p), ingangsdatum)
-          } catch {
-            return false
-          }
-        }) ?? null
+        const retirementAge = entry.retirementAge
 
-        // Preserve existing scenario's supplementPeriods if it exists
-        const existing = scenarios.value.find(s => agesEqual(s.retirementAge, ingangsdatum))
-        const supplementPeriods = existing?.supplementPeriods ?? []
+        // Restore persisted supplementPeriods, falling back to in-memory if already loaded
+        const existing = scenarios.value.find(s => agesEqual(s.retirementAge, retirementAge))
+        const supplementPeriods = savedPeriods.value[ageKey(retirementAge)] ?? existing?.supplementPeriods ?? []
 
-        const timeline = projectScenario(ingangsdatum, overzicht, partnerOverzicht, supplementPeriods)
+        const timeline = projectScenario(retirementAge, entry.amounts, supplementPeriods)
 
         newScenarios.push({
           id: existing?.id ?? generateId(),
-          label: buildLabel(ingangsdatum),
-          retirementAge: ingangsdatum,
+          label: buildLabel(retirementAge),
+          retirementAge,
           timeline,
           supplementPeriods,
         })
@@ -113,24 +122,15 @@ export const useScenarioStore = defineStore('scenarios', () => {
 
     scenario.supplementPeriods = periods
 
-    // Find the matching overview for this scenario
-    const overzicht = pensionStore.pensionData.find(o => {
-      try {
-        return agesEqual(deriveIngangsdatum(o), scenario.retirementAge)
-      } catch {
-        return false
-      }
-    }) ?? null
+    // Persist so periods survive page reloads
+    savedPeriods.value[ageKey(scenario.retirementAge)] = periods
+    savePeriods()
 
-    const partnerOverzicht = pensionStore.partnerPensionData.find(p => {
-      try {
-        return agesEqual(deriveIngangsdatum(p), scenario.retirementAge)
-      } catch {
-        return false
-      }
-    }) ?? null
+    // Find the matching entry for this scenario
+    const entry = pensionStore.entries.find(e => agesEqual(e.retirementAge, scenario.retirementAge))
+    const pensionAmounts = entry?.amounts ?? null
 
-    scenario.timeline = projectScenario(scenario.retirementAge, overzicht, partnerOverzicht, periods)
+    scenario.timeline = projectScenario(scenario.retirementAge, pensionAmounts, periods)
   }
 
   return {

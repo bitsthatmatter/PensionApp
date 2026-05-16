@@ -39,5 +39,11 @@ export function useFormatting() {
     return `${age.years} jaar en ${age.months} maanden`
   }
 
-  return { formatCurrency, formatEurocents, formatDate, formatAge }
+  /** Formats an IBAN string in groups of 4 characters, e.g. "NL49INGB0001234567" → "NL49 INGB 0001 2345 67". */
+  function formatIban(iban: string): string {
+    const stripped = iban.replace(/\s+/g, '').toUpperCase()
+    return stripped.match(/.{1,4}/g)?.join(' ') ?? stripped
+  }
+
+  return { formatCurrency, formatEurocents, formatDate, formatAge, formatIban }
 }

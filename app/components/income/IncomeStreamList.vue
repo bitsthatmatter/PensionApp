@@ -43,7 +43,7 @@
               {{ s.accountName || s.label }}
             </p>
             <p v-if="s.accountNumber" class="text-xs text-(--ui-text-muted) font-mono">
-              {{ s.accountNumber }}
+              {{ formatIban(s.accountNumber) }}
             </p>
             <p v-if="s.accountName && s.label" class="text-xs text-(--ui-text-dimmed)">
               {{ s.label }}
@@ -148,7 +148,7 @@ import type { FinancialStream, StreamType } from '~/types/financial'
 import { useFinancialStore } from '~/stores/financial'
 
 const financialStore = useFinancialStore()
-const { formatCurrency, formatDate } = useFormatting()
+const { formatCurrency, formatDate, formatIban } = useFormatting()
 
 const showForm = ref(false)
 const editingStream = ref<FinancialStream | null>(null)
