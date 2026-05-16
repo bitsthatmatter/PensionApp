@@ -1,3 +1,4 @@
+import { watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { Age, PensionEmployer, PensionScenarioEntry } from '~/types/financial'
 
@@ -135,6 +136,8 @@ export const usePensionStore = defineStore('pension', () => {
   )
 
   load()
+
+  watch(entries, save, { deep: true })
 
   return {
     entries,
