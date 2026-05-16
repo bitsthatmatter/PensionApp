@@ -117,7 +117,7 @@ export function computeAnnuityFactor(
 }
 
 /**
- * Zet opgebouwd kapitaal (in eurocent) om naar een jaarlijkse brutoutkering
+ * Zet opgebouwd kapitaal (in eurocent) om naar een jaarlijkse brutouitkering
  * (in eurocent) op basis van de actuariële annuïteitsfactor.
  */
 export function capitalToAnnualBenefit(
@@ -131,7 +131,7 @@ export function capitalToAnnualBenefit(
   return Math.round(capitalEurocents / factor)
 }
 
-/** Maandelijkse brutoutkering (eurocent) */
+/** Maandelijkse brutouitkering (eurocent) */
 export function capitalToMonthlyBenefit(
   capitalEurocents: number,
   startAge: number,

@@ -1,7 +1,5 @@
 import { Temporal } from 'temporal-polyfill'
-import type { Age, FinancialStream, BudgetedCost, SupplementPeriod } from '~/types/financial'
-import type { Pensioenoverzicht } from '~/types/pensioenoverzicht'
-import { isLeeftijdsGrens } from '~/types/pensioenoverzicht'
+import type { Age, FinancialStream, BudgetedCost, SupplementPeriod, PensionPeriodAmount } from '~/types/financial'
 import { ageToMonths, monthsToAge, addMonthsToDate, ageAtDate } from '~/domain/age'
 
 /** All monetary fields are in euros (floating-point). */
@@ -31,14 +29,17 @@ export interface ProjectionInput {
   retirementAge: Age
   aowAge: Age
   hasPartner: boolean
-  /** Reserved for future partner-specific projection logic. Not used in the current cashflow model. */
   partnerDateOfBirth?: string
   streams: FinancialStream[]
   expenseStreams: FinancialStream[]
   budgetedCosts: BudgetedCost[]
-  pensionData: Pensioenoverzicht | null
-  /** Partner pension data. Reserved for future use — not yet used in cashflow. */
-  partnerPensionData?: Pensioenoverzicht | null
+  /**
+   * Net monthly pension amounts per period.
+   * netBeforeAow: used from retirementAge up to (but not including) aowAge.
+   * netAfterAow: used from aowAge onwards (includes AOW).
+   * null = no pension income.
+   */
+  pensionAmounts: PensionPeriodAmount | null
   /** Periods during which savings are drawn to top up income to a target amount. */
   supplementPeriods?: SupplementPeriod[]
   endAge?: number
@@ -49,11 +50,10 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
     dateOfBirth,
     retirementAge,
     aowAge,
-    hasPartner,
     streams,
     expenseStreams,
     budgetedCosts,
-    pensionData,
+    pensionAmounts,
     supplementPeriods = [],
     endAge = 95,
   } = input
@@ -94,40 +94,12 @@ export function projectRetirementTimeline(input: ProjectionInput): MonthSnapshot
       }
     }
 
-    if (pensionData && ageMonth >= retirementAgeMonths) {
-      const totaalRegels = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
-      const matchingPeriod = totaalRegels.find(p => {
-        if (!isLeeftijdsGrens(p.Van)) return false
-        const fromMonths = ageToMonths({ years: p.Van.Leeftijd.Jaren, months: p.Van.Leeftijd.Maanden })
-        const toMonths = isLeeftijdsGrens(p.Tot)
-          ? ageToMonths({ years: p.Tot.Leeftijd.Jaren, months: p.Tot.Leeftijd.Maanden })
-          : Infinity
-        return ageMonth >= fromMonths && ageMonth < toMonths
-      })
-
-      if (matchingPeriod) {
-        totalIncome += ((matchingPeriod.Pensioen ?? 0) + (matchingPeriod.IndicatiefPensioen ?? 0)) / 12
+    if (pensionAmounts && ageMonth >= retirementAgeMonths) {
+      if (ageMonth < aowAgeMonths) {
+        totalIncome += pensionAmounts.netBeforeAow
+      } else {
+        totalIncome += pensionAmounts.netAfterAow
       }
-    }
-
-    if (pensionData && ageMonth >= aowAgeMonths) {
-      // samenwonend is the per-person AOW rate for cohabitants; alleenstaand for singles.
-      // The partner's own AOW entitlement is not added here — this projection models
-      // the primary person's individual cashflow only.
-      const totaalRegels = pensionData.Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal
-      const aowPeriod = totaalRegels.find(p => {
-        if (p.AOWSamenwonend == null) return false
-        if (!isLeeftijdsGrens(p.Van)) return false
-        const fromMonths = ageToMonths({ years: p.Van.Leeftijd.Jaren, months: p.Van.Leeftijd.Maanden })
-        const toMonths = isLeeftijdsGrens(p.Tot)
-          ? ageToMonths({ years: p.Tot.Leeftijd.Jaren, months: p.Tot.Leeftijd.Maanden })
-          : Infinity
-        return ageMonth >= fromMonths && ageMonth < toMonths
-      })
-      const aowAnnual = hasPartner
-        ? (aowPeriod?.AOWSamenwonend ?? 0)
-        : (aowPeriod?.AOWAlleenstaand ?? 0)
-      totalIncome += aowAnnual / 12
     }
 
     const currentPlain = Temporal.PlainDate.from(date)

@@ -1,133 +1,169 @@
-# Spec: Meerdere pensioenoverzichten + automatische scenario's + spaargeld per scenario
+# Spec: Handmatige invoer netto pensioenbedragen per scenario
 
 ## Probleemstelling
 
-Het pensioenoverzicht van mijnpensioenoverzicht.nl bevat bedragen die afhankelijk zijn van de gekozen ingangsdatum. Als een gebruiker een scenario wil vergelijken voor pensioen op 62 jaar versus 67 jaar, zijn de uitkeringsbedragen in werkelijkheid anders — maar het huidige systeem gebruikt altijd hetzelfde JSON-bestand voor alle scenario's.
+De huidige app verwacht een JSON-export van mijnpensioenoverzicht.nl. De gebruiker wil dit vervangen door handmatige invoer van netto maandbedragen die hij afleest van screenshots van zijn Rabobank pensioenoverzicht. Per pensioenleeftijd zijn er twee periodes: vóór AOW-leeftijd en ná AOW-leeftijd, elk met een eigen netto maandbedrag.
 
-Daarnaast wil de gebruiker per scenario kunnen instellen tot welk bedrag hij zijn maandelijkse bruto uitkering wil kunnen aanvullen, inclusief een signalering wanneer het spaargeld dat hij daarvoor gebruikt op is.
+De ingevoerde bedragen moeten:
+1. Worden weergegeven in een overzichtstabel (alle leeftijden naast elkaar).
+2. Automatisch scenario's genereren in de bestaande scenario-engine, zodat aanvulperiodes, grafieken en vergelijkingstabellen blijven werken.
 
-De oplossing bestaat uit drie samenhangende onderdelen:
-1. Meerdere pensioenoverzichten uploaden (elk voor een andere ingangsdatum).
-2. Scenario's worden automatisch gegenereerd op basis van de geladen overzichten — de slider verdwijnt.
-3. Per scenario kan worden aangegeven tot welk bedrag de maandelijkse uitkering aangevuld moet worden.
+---
+
+## Wat de screenshots laten zien
+
+De Rabobank-screenshots tonen per pensioenleeftijd twee schermen:
+
+**Scherm A — periode vóór AOW (bijv. 62 jaar → 67 jaar 3 maanden):**
+- Pensioenuitkering bruto (€/mnd)
+- Loonheffing (€/mnd)
+- **Netto pensioenuitkering (€/mnd)** ← het relevante veld
+
+**Scherm B — periode ná AOW (bijv. 67 jaar 3 maanden → overlijden):**
+- Pensioenuitkering bruto (€/mnd)
+- Loonheffing (€/mnd)
+- Netto pensioenuitkering (€/mnd)
+- AOW netto (€/mnd)
+- **Totaal netto per maand (€/mnd)** ← het relevante veld
+
+De vijf pensioenleeftijden zijn: **62, 63, 64, 65 jaar** en **67 jaar en 3 maanden**.  
+De AOW-leeftijd is **67 jaar en 3 maanden** (vast).
 
 ---
 
 ## Vereisten
 
-### Opslag van meerdere overzichten
+### Gegevensmodel: `PensionPeriodAmount` en `PensionScenarioEntry`
 
-- De pension store slaat een **lijst** van pensioenoverzichten op (max 3), in plaats van één enkel overzicht.
-- Elk opgeslagen overzicht krijgt een **ingangsdatum** die automatisch wordt afgeleid uit de eerste leeftijdsperiode in `Totalen.OuderdomsPensioenTotalen.OuderdomsPensioenTotaal` (de `Van.Leeftijd` van de eerste regel met een `Pensioen`-bedrag).
-- Hetzelfde geldt voor de partner: ook de partner-store slaat een lijst op (max 3).
-- Opslag in localStorage onder bestaande keys, maar als array: `retirement-planner-pension` en `retirement-planner-pension-partner`.
+Nieuw type in `app/types/financial.ts`:
 
-### Automatische scenario's
+```ts
+export interface PensionPeriodAmount {
+  /** Netto maandbedrag vóór AOW-leeftijd (€/mnd). */
+  netBeforeAow: number
+  /** Netto maandbedrag ná AOW-leeftijd (€/mnd, inclusief AOW). */
+  netAfterAow: number
+}
 
-- De `ScenarioSelector` met slider **verdwijnt**. Scenario's worden niet meer handmatig aangemaakt.
-- Zodra pensioenoverzichten geladen zijn, genereert de scenarios store automatisch één scenario per geladen overzicht. De pensioenleeftijd van elk scenario is de ingangsdatum afgeleid uit dat overzicht.
-- Als overzichten worden toegevoegd of verwijderd, worden de scenario's automatisch bijgewerkt (via een `watch` op de overzichtenlijst in de pension store).
-- Maximaal 3 scenario's (gelijk aan het maximum aantal overzichten).
-- Als er geen overzichten zijn, toont de pagina een lege staat met instructie om overzichten te uploaden.
+export interface PensionScenarioEntry {
+  /** Pensioenleeftijd als Age. */
+  retirementAge: Age
+  amounts: PensionPeriodAmount
+}
+```
 
-### Koppeling overzicht aan scenario
+De vijf vaste pensioenleeftijden:
+- `{ years: 62, months: 0 }`
+- `{ years: 63, months: 0 }`
+- `{ years: 64, months: 0 }`
+- `{ years: 65, months: 0 }`
+- `{ years: 67, months: 3 }`
 
-- Elk automatisch scenario gebruikt het overzicht waarvan de ingangsdatum overeenkomt met de pensioenleeftijd van dat scenario (exacte match, want het scenario is afgeleid van dat overzicht).
-- Als er geen overzicht is, wordt `null` doorgegeven (huidig gedrag).
-- Partner-overzichten genereren **geen eigen scenario's**. Ze worden gekoppeld aan het primaire scenario met dezelfde ingangsdatum: als er een partner-overzicht bestaat met dezelfde ingangsdatum als een primair scenario, wordt dat partner-overzicht meegegeven als `partnerPensionData` in de `ProjectionInput`. Als er geen match is, wordt `null` doorgegeven.
+### Store: `pension.ts` — vereenvoudigd
 
-### Aan te vullen tot bedrag voor bepaalde periodes per scenario
+De bestaande `Pensioenoverzicht[]`-logica (JSON-upload, `deriveIngangsdatum`, `upsertOverzicht`) wordt **volledig vervangen** door een eenvoudige store die `PensionScenarioEntry[]` beheert.
 
-- Het enkelvoudige `monthlyWithdrawal: number` wordt vervangen door een lijst van **aan te vullen tot periodes**: `supplementPeriods: SupplementPeriod[]`.
-- Een `SupplementPeriod` heeft:
-  - `fromAge: Age` — startleeftijd (inclusief)
-  - `toAge?: Age` — eindleeftijd (exclusief). Als leeg: periode loopt tot einde tijdlijn of tot spaarpot leeg is.
-  - `targetIncome: number` — het gewenste totale bruto maandinkomen in euro's (≥ 0)
-- `monthlyWithdrawal` is **geen opgeslagen veld**. De benodigde aanvulling wordt elke maand dynamisch berekend in de projectie: `max(0, targetIncome − regulierInkomenDieMaand)`. Hierdoor past de aanvulling zich automatisch aan als bijv. AOW later start.
-- Periodes mogen niet overlappen. De volgorde is op `fromAge`.
-- De **spaarpot** is het lopende `cumulativeSavings` saldo (inclusief effect van regulier netto cashflow, niet alleen de initiële lump sum).
-- Per maand in de projectie: zoek de actieve `SupplementPeriod` op basis van `ageMonth`. Bereken de benodigde aanvulling als `max(0, targetIncome − regulierInkomen)`. Tel dit op bij het inkomen, maar alleen zolang `cumulativeSavings > 0` (vóór de aanvulling van die maand).
-- De maandaanvulling stopt zodra `cumulativeSavings ≤ 0` (vóór aanvulling), ongeacht de periode.
-- De scenario-kaart toont op welke leeftijd de spaarpot leeg is (of "Nooit (voldoende)").
-- In de grafiek daalt het maandinkomen zichtbaar wanneer een periode eindigt of de spaarpot leeg raakt.
-- `supplementPeriods` wordt opgeslagen als onderdeel van het scenario-object.
-- Voorbeeld: regulier inkomen die maand is € 3.400; `targetIncome` = € 4.300 → aanvulling = € 900.
+- Opslag in localStorage onder key `retirement-planner-pension-v2` (nieuwe key om conflicten met oude data te vermijden).
+- De store initialiseert met de vijf vaste leeftijden, elk met `netBeforeAow: 0` en `netAfterAow: 0`.
+- Functie `updateAmount(retirementAge: Age, field: 'netBeforeAow' | 'netAfterAow', value: number)` — werkt het bedrag bij en slaat op.
+- Geen upload-functionaliteit meer. Geen `error`, `isLoading`, `partnerPensionData`.
+- De partner-store (`partnerPensionData`) vervalt volledig.
 
-### Scenario-kaart (`ScenarioCard.vue`)
+### Invoercomponent: `PensionAmountTable.vue` (nieuw, vervangt `PensionUpload.vue`)
 
-- De bestaande verwijderknop (×) in de kaart-header blijft. Verwijderen van een scenario verwijdert het scenario uit de lijst (niet het bijbehorende overzicht).
-- Toont een bewerkbare lijst van aanvulperiodes, elk met:
-  - Van-leeftijd (jaren + maanden)
-  - Tot-leeftijd (jaren + maanden, optioneel — leeg = open einde)
-  - Gewenst totaalinkomen `targetIncome` (€/mnd)
-  - Verwijderknop per periode
-- Knop "Periode toevoegen" voegt een nieuwe lege periode toe.
-- Bij elke wijziging wordt het scenario direct herberekend.
-- Toont een rij "Spaargeld op" met de leeftijd waarop `cumulativeSavings ≤ 0`, of "Nooit (voldoende)".
+Locatie: `app/components/income/PensionAmountTable.vue`
 
-### Upload UI (`PensionUpload.vue`)
+Toont een tabel met:
+- Kolommen: één per pensioenleeftijd (5 kolommen), header toont de leeftijd (bijv. "62 jaar", "67 jaar 3 mnd")
+- Rijen:
+  1. **Netto/mnd vóór AOW** — invoerveld (€, geheel getal of decimaal)
+  2. **Netto/mnd ná AOW** — invoerveld (€, geheel getal of decimaal, inclusief AOW)
+- Boven de tabel: korte instructietekst, bijv. _"Lees de netto maandbedragen af van uw pensioenoverzicht en vul ze hieronder in. Vóór AOW: netto pensioenuitkering. Ná AOW: totaal netto per maand (inclusief AOW)."_
+- Invoervelden zijn `<UInput type="number">` met `step="1"` en `min="0"`.
+- Bij elke wijziging wordt `pensionStore.updateAmount(...)` aangeroepen.
+- Geen uploadknop, geen bestandsinvoer.
 
-- De uploadknop blijft beschikbaar zolang er minder dan 3 overzichten zijn opgeslagen.
-- Na upload toont de component een **lijst van geladen overzichten**, elk met:
-  - De afgeleide ingangsdatum (bijv. "Vanaf 65 jaar")
-  - Een verwijderknop per overzicht
-- Als er al een overzicht met dezelfde ingangsdatum bestaat, wordt het **overschreven** (niet toegevoegd als duplicaat).
-- De bestaande detailtabellen (AOW, periodes, uitvoerders) tonen de gegevens van het **meest recent geselecteerde** overzicht, of het eerste in de lijst als er geen selectie is.
+### Inkomenspagina (`income.vue`)
 
-### Waarschuwing op scenario's pagina
+- Vervangt `<IncomePensionUpload />` door `<IncomePensionAmountTable />`.
+- De partner-upload (`<IncomePensionUpload person="partner" />`) vervalt.
 
-- Bovenaan de scenario's pagina verschijnt altijd een `UAlert` (color `info`) als er pensioenoverzicht-data geladen is, met de tekst:
-  > "De uitkeringsbedragen in uw pensioenoverzicht zijn afhankelijk van de gekozen ingangsdatum. Download voor elke pensioenleeftijd een apart overzicht via mijnpensioenoverzicht.nl voor de meest nauwkeurige berekening."
-- De waarschuwing verdwijnt niet; er is geen sluitknop.
+### Projectie-engine: `retirement-projection.ts` — aanpassing
 
-### Dashboard profiel-kaart
+De huidige engine leest `pensionData: Pensioenoverzicht | null` uit en zoekt de bijbehorende periode op. Dit wordt vervangen door een eenvoudiger model:
 
-- De stat "Pensioenoverzicht" toont het **aantal** geladen overzichten (bijv. "2 geladen") in plaats van "Geladen" / "Niet geladen".
-- Zelfde voor de partner-kaart.
+- `ProjectionInput.pensionData` wordt vervangen door `pensionAmounts: PensionPeriodAmount | null`.
+- In de maandlus:
+  - Als `ageMonth >= retirementAgeMonths` en `ageMonth < aowAgeMonths`: gebruik `pensionAmounts.netBeforeAow` als maandinkomen.
+  - Als `ageMonth >= aowAgeMonths`: gebruik `pensionAmounts.netAfterAow` als maandinkomen.
+  - Als `pensionAmounts === null`: geen pensioeninkomen.
+- De AOW-logica die apart uit de JSON werd gelezen vervalt — het AOW-bedrag zit al verwerkt in `netAfterAow`.
+- `partnerPensionData` vervalt uit `ProjectionInput`.
+- `aowAge` blijft in `ProjectionInput` — nodig om de grens tussen de twee periodes te bepalen.
+
+### Scenarios store (`scenarios.ts`) — aanpassing
+
+- De `watch` op `pensionStore.pensionData` (de array van `Pensioenoverzicht[]`) wordt vervangen door een `watch` op `pensionStore.entries` (de `PensionScenarioEntry[]`).
+- Per entry met minstens één bedrag > 0 (`netBeforeAow > 0 || netAfterAow > 0`) wordt automatisch een scenario aangemaakt.
+- Entries met beide bedragen = 0 genereren **geen** scenario (lege staat).
+- De koppeling: `projectScenario` krijgt `pensionAmounts: entry.amounts` mee in plaats van `pensionData`.
+- `supplementPeriods` en `updateSupplementPeriods` blijven ongewijzigd.
+- `removeScenario` blijft — verwijdert het scenario maar niet de entry (bedragen blijven bewaard in de tabel).
+
+### Dashboard (`index.vue`) — aanpassing
+
+- De stat "Pensioenoverzicht" toont het aantal ingevulde scenario's (entries met minstens één bedrag > 0), bijv. "3 van 5 ingevuld".
+- De partner-stat vervalt.
+
+### Scenario's pagina (`scenarios.vue`) — aanpassing
+
+- De `UAlert` over het downloaden van aparte overzichten per leeftijd vervalt (niet meer relevant).
+- Lege staat: toon instructie om bedragen in te vullen op de inkomenspagina.
+- `ScenarioCard`, `ScenarioComparison`, `TimelineChart` blijven ongewijzigd.
+
+### Verwijdering van bestaande code
+
+De volgende bestanden/onderdelen worden verwijderd of geleegd:
+- `app/components/income/PensionUpload.vue` — vervangen door `PensionAmountTable.vue`
+- `app/domain/pension-overview.ts` en `pension-overview.test.ts` — niet meer nodig
+- `app/types/pensioenoverzicht.ts` — niet meer nodig
+- Alle imports van `Pensioenoverzicht`, `deriveIngangsdatum`, `isLeeftijdsGrens` etc.
 
 ---
 
 ## Acceptatiecriteria
 
-1. Een gebruiker kan tot 3 pensioenoverzichten uploaden; een 4e upload is geblokkeerd.
-2. Elk overzicht toont zijn afgeleide ingangsdatum in de lijst.
-3. Een overzicht met een al bestaande ingangsdatum overschrijft het bestaande.
-4. Zodra overzichten geladen zijn, verschijnen automatisch evenveel scenario's als overzichten, elk met de bijbehorende ingangsdatum als pensioenleeftijd.
-5. De `ScenarioSelector` met slider is verwijderd van de scenario's pagina.
-6. Als geen enkel overzicht is geladen, toont de scenario's pagina een lege staat met instructie.
-7. Per scenario kunnen meerdere aanvulperiodes worden ingesteld (van leeftijd tot leeftijd, met maandelijks bedrag). De laatste periode mag een open einde hebben.
-8. Het aanvulbedrag wordt per maand opgeteld bij het inkomen, maar stopt zodra de spaarpot leeg is.
-9. De scenario-kaart toont op welke leeftijd de spaarpot leeg is.
-10. In de grafiek daalt het maandinkomen zichtbaar wanneer een periode eindigt of de spaarpot leeg raakt.
-11. De waarschuwing is zichtbaar op de scenario's pagina zodra er minimaal één overzicht geladen is.
-12. De dashboard-stat toont het aantal geladen overzichten.
-13. Partner-overzichten (max 3) worden opgeslagen en getoond in `PensionUpload` (partner). Ze genereren geen eigen scenario's, maar worden gekoppeld aan het primaire scenario met dezelfde ingangsdatum als `partnerPensionData`. De dashboard-stat voor de partner toont het aantal geladen partner-overzichten.
-14. Bestaande tests blijven slagen.
+1. De inkomenspagina toont een tabel met 5 kolommen (pensioenleeftijden) en 2 invoerijen (vóór/ná AOW).
+2. Ingevoerde bedragen worden opgeslagen in localStorage en herladen bij refresh.
+3. Elke entry met minstens één bedrag > 0 genereert automatisch een scenario.
+4. Entries met beide bedragen = 0 genereren geen scenario.
+5. In de projectie wordt `netBeforeAow` gebruikt vóór AOW-leeftijd en `netAfterAow` ná AOW-leeftijd.
+6. Aanvulperiodes, grafieken en vergelijkingstabellen werken ongewijzigd.
+7. De JSON-upload en alle `Pensioenoverzicht`-gerelateerde code zijn verwijderd.
+8. De partner-pensioensectie is verwijderd van de inkomenspagina en het dashboard.
+9. `pnpm test` slaagt (bestaande tests bijgewerkt voor de nieuwe `ProjectionInput`-interface).
+10. De dashboard-stat toont "X van 5 ingevuld".
 
 ---
 
 ## Implementatieaanpak
 
-1. **`domain/pension-overview.ts`** (nieuw) — pure functie `deriveIngangsdatum(overzicht: Pensioenoverzicht): Age` die de ingangsdatum afleidt als de **laagste `Van.Leeftijd`** uit alle totaalregels met een `Pensioen`-bedrag > 0 en een `LeeftijdsGrens` als `Van`. Voeg een `.test.ts` toe.
+1. **`app/types/financial.ts`** — voeg `PensionPeriodAmount` en `PensionScenarioEntry` toe. Verwijder `SupplementPeriod` niet (blijft nodig). Verwijder imports van `pensioenoverzicht.ts` waar aanwezig.
 
-2. **`pension.ts` store** — verander `pensionData: Pensioenoverzicht | null` naar `pensionData: Pensioenoverzicht[]` (max 3). Zelfde voor `partnerPensionData`. Pas `uploadPensionFile` / `uploadPartnerPensionFile` aan: voeg toe aan lijst of overschrijf bij zelfde ingangsdatum. Voeg `removePensionFile(index)` / `removePartnerPensionFile(index)` toe. Verwijder `findClosestOverzicht` — niet nodig omdat scenario's exact gekoppeld zijn aan hun overzicht.
+2. **`app/stores/pension.ts`** — herschrijf volledig: sla `PensionScenarioEntry[]` op met de 5 vaste leeftijden als initiële waarde (alle bedragen 0). Voeg `updateAmount(retirementAge, field, value)` toe. Verwijder alle JSON-upload/parse-logica, `deriveIngangsdatum`, partner-logica en `pensioenoverzicht.ts`-imports.
 
-3. **`types/financial.ts`** — voeg `SupplementPeriod` interface toe: `{ fromAge: Age, toAge?: Age, targetIncome: number }`. Geen `monthlyWithdrawal` veld — dat is een dynamische berekening in de projectie.
+3. **`app/domain/retirement-projection.ts`** — vervang `pensionData: Pensioenoverzicht | null` door `pensionAmounts: PensionPeriodAmount | null` in `ProjectionInput`. Pas de maandlus aan: gebruik `netBeforeAow` / `netAfterAow` direct op basis van `aowAgeMonths`. Verwijder de AOW-lookup uit de JSON. Verwijder `partnerPensionData`. Verwijder `pensioenoverzicht.ts`-imports.
 
-4. **`retirement-projection.ts`** — voeg `supplementPeriods: SupplementPeriod[]` toe aan `ProjectionInput` (default `[]`). Voeg ook `partnerPensionData: Pensioenoverzicht | null` toe (default `null`, voor toekomstig gebruik — nog niet gebruikt in cashflow). In de maandlus: zoek de actieve `SupplementPeriod` op basis van `ageMonth` (van ≤ ageMonth < tot, of geen tot = open einde). Bereken aanvulling als `max(0, period.targetIncome − regulierInkomenDieMaand)`. Tel dit op bij het inkomen, maar **alleen als `cumulativeSavings > 0` vóór de aanvulling**. `pensionData` blijft `Pensioenoverzicht | null`.
+4. **`app/domain/retirement-projection.test.ts`** — update tests voor de nieuwe `ProjectionInput`-interface: vervang `pensionData` door `pensionAmounts`. Voeg tests toe voor de twee periodes (vóór/ná AOW).
 
-5. **`RetirementScenario` interface** — voeg `supplementPeriods: SupplementPeriod[]` toe aan het scenario-object (default `[]`). Verwijder eventueel bestaand `monthlyWithdrawal` veld.
+5. **`app/stores/scenarios.ts`** — vervang de `watch` op `pensionStore.pensionData` door een `watch` op `pensionStore.entries`. Pas `projectScenario` aan om `pensionAmounts: entry.amounts` mee te geven. Filter entries met beide bedragen = 0 eruit. Verwijder `pensioenoverzicht.ts`-imports.
 
-6. **`scenarios.ts` store** — verwijder `addScenario`, `clearScenarios`, `refreshScenarios`. Behoud `removeScenario` (verwijderknop op kaart blijft). Voeg een `watch` toe op `pensionStore.pensionData` (de array): genereer automatisch één scenario per overzicht, met de ingangsdatum als `retirementAge`, het bijbehorende overzicht als `pensionData`, het partner-overzicht met dezelfde ingangsdatum als `partnerPensionData` (of `null`), en `supplementPeriods: []` als default. Bestaande scenario's met dezelfde `retirementAge` worden bijgewerkt (niet vervangen) zodat `supplementPeriods` behouden blijft. Voeg `updateSupplementPeriods(id, periods: SupplementPeriod[])` toe die de periodes van een scenario bijwerkt en de tijdlijn herberekent.
+6. **`app/components/income/PensionAmountTable.vue`** (nieuw) — tabel met 5 kolommen en 2 invoerijen. Gebruikt `UInput type="number"` voor elk veld. Roept `pensionStore.updateAmount` aan bij wijziging. Toont instructietekst boven de tabel.
 
-7. **`ScenarioCard.vue`** — vervang het enkelvoudige invoerveld door een bewerkbare lijst van aanvulperiodes (van-leeftijd, tot-leeftijd optioneel, `targetIncome`, verwijderknop per periode) met een "Periode toevoegen" knop. Voeg de rij "Spaargeld op" toe: leeftijd waarop `cumulativeSavings ≤ 0`, of "Nooit (voldoende)". Bij elke wijziging: roep `scenarioStore.updateSupplementPeriods` aan. De bestaande verwijderknop (×) in de header blijft en verwijdert het scenario via `scenarioStore.removeScenario`.
+7. **`app/pages/income.vue`** — vervang `<IncomePensionUpload />` door `<IncomePensionAmountTable />`. Verwijder partner-upload.
 
-7. **`ScenarioSelector.vue`** — verwijder de component (of maak hem inactief). Verwijder de import in `scenarios.vue`.
+8. **`app/pages/scenarios.vue`** — verwijder de `UAlert` over aparte overzichten. Pas lege staat aan: verwijs naar inkomenspagina voor het invullen van bedragen.
 
-8. **`scenarios.vue`** — verwijder `ScenarioSelector`, verwijder de knoppen "Alle scenario's wissen" en "Herberekenen" (niet meer relevant). Voeg `UAlert` toe bovenaan als er overzichten geladen zijn. Pas de lege staat aan: toon instructie om overzichten te uploaden via de inkomenspagina.
+9. **`app/pages/index.vue`** — pas de pensioenoverzicht-stat aan: toon "X van 5 ingevuld" op basis van `pensionStore.entries`.
 
-9. **`PensionUpload.vue`** — toon lijst van geladen overzichten met ingangsdatum en verwijderknop. Uploadknop disabled bij 3 overzichten. Detailtabellen tonen het eerste overzicht in de lijst.
-
-10. **`ProfileForm.vue` / `PartnerProfileForm.vue`** — pas de "Pensioenoverzicht" stat aan: toon aantal geladen overzichten (bijv. "2 geladen") of "Niet geladen".
-
-11. **Tests** — voeg tests toe voor `deriveIngangsdatum` (inclusief geval met meerdere Van-leeftijden: laagste wordt gekozen). Update `retirement-projection.test.ts` voor `supplementPeriods` in `ProjectionInput`: test dat de aanvulling dynamisch wordt berekend per maand (`max(0, targetIncome − regulierInkomen)`), dat de aanvulling stopt als `cumulativeSavings ≤ 0`, en dat een open-einde periode correct doorloopt.
+10. **Opruimen** — verwijder `PensionUpload.vue`, `pension-overview.ts`, `pension-overview.test.ts`, `pensioenoverzicht.ts`. Verwijder alle imports die daarnaar verwijzen.

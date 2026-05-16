@@ -64,7 +64,7 @@
       </div>
     </div>
 
-      <div v-if="store.profile.partnerDateOfBirth" class="grid grid-cols-2 gap-4 border-t border-(--ui-border) pt-5">
+      <div v-if="store.profile.partnerDateOfBirth" class="grid grid-cols-1 gap-4 border-t border-(--ui-border) pt-5">
         <div class="flex items-center gap-3 rounded-xl bg-(--ui-bg-elevated)/50 border border-(--ui-border) px-4 py-3">
           <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10">
             <UIcon name="i-heroicons-arrow-trending-up" class="size-5 text-pink-500" />
@@ -72,15 +72,6 @@
           <div class="min-w-0">
             <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Inkomstenbronnen</p>
             <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ partnerStreams }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 rounded-xl bg-(--ui-bg-elevated)/50 border border-(--ui-border) px-4 py-3">
-          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10">
-            <UIcon name="i-heroicons-document-check" class="size-5 text-pink-500" />
-          </div>
-          <div class="min-w-0">
-            <p class="text-xs font-medium uppercase tracking-wider text-(--ui-text-dimmed)">Pensioenoverzicht</p>
-            <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ pensionStore.partnerPensionData.length > 0 ? `${pensionStore.partnerPensionData.length} geladen` : 'Niet geladen' }}</p>
           </div>
         </div>
       </div>
@@ -91,11 +82,9 @@
 <script setup lang="ts">
 import { useProfileStore } from '~/stores/profile'
 import { useFinancialStore } from '~/stores/financial'
-import { usePensionStore } from '~/stores/pension'
 
 const store = useProfileStore()
 const financialStore = useFinancialStore()
-const pensionStore = usePensionStore()
 const { formatAge, formatDate } = useFormatting()
 
 const partnerStreams = computed(() =>

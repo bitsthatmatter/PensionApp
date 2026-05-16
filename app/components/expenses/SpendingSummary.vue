@@ -61,8 +61,11 @@ const { transactions } = useTransactions()
 const { formatCurrency } = useFormatting()
 const financialStore = useFinancialStore()
 
-const useManualBaseline = ref(false)
-const manualBaseline = ref(0)
+// Restore manual baseline state from the persisted store value on mount.
+// If a baseline was saved, re-enable the manual toggle and show the saved value.
+const persistedBaseline = financialStore.monthlyExpenseBaseline
+const useManualBaseline = ref(persistedBaseline !== null)
+const manualBaseline = ref(persistedBaseline ?? 0)
 
 const monthsCovered = computed(() => {
   if (transactions.value.length === 0) return 0
@@ -97,12 +100,22 @@ const effectiveMonthlyExpenses = computed(() => {
   return monthlyAvgExpenses.value
 })
 
+// Clear persisted baseline when the manual toggle is turned off
+watch(useManualBaseline, (enabled) => {
+  if (!enabled) financialStore.setMonthlyExpenseBaseline(null)
+})
+
 // Keep the store in sync so the projection engine picks up the baseline.
-// Write null when there are no transactions (no override active).
+// When manual override is active, persist the value regardless of whether
+// transactions are loaded (transactions are session-only; the manual value is not).
 watch(
   effectiveMonthlyExpenses,
   (value) => {
-    financialStore.setMonthlyExpenseBaseline(transactions.value.length > 0 ? value : null)
+    if (useManualBaseline.value) {
+      financialStore.setMonthlyExpenseBaseline(value)
+    } else {
+      financialStore.setMonthlyExpenseBaseline(transactions.value.length > 0 ? value : null)
+    }
   },
   { immediate: true },
 )

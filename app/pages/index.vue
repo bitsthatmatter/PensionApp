@@ -68,7 +68,7 @@ const quickLinks = [
     to: '/income',
     icon: 'i-heroicons-wallet',
     title: 'Inkomen beheren',
-    desc: 'Pensioenoverzicht uploaden, salaris en andere inkomsten instellen',
+    desc: 'Netto pensioenbedragen invullen, salaris en andere inkomsten instellen',
   },
   {
     to: '/expenses',
