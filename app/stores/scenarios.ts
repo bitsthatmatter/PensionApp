@@ -109,7 +109,7 @@ export const useScenarioStore = defineStore('scenarios', () => {
       newScenarios.sort((a, b) => ageToMonths(a.retirementAge) - ageToMonths(b.retirementAge))
       scenarios.value = newScenarios
     },
-    { deep: true },
+    { deep: true, immediate: true },
   )
 
   function removeScenario(id: string) {
