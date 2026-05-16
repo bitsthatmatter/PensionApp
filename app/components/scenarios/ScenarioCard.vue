@@ -134,6 +134,7 @@
 import type { RetirementScenario } from '~/domain/retirement-projection'
 import type { SupplementPeriod } from '~/types/financial'
 import { useScenarioStore } from '~/stores/scenarios'
+import { useProfileStore } from '~/stores/profile'
 
 const props = defineProps<{
   scenario: RetirementScenario
@@ -143,6 +144,7 @@ const props = defineProps<{
 defineEmits<{ remove: [] }>()
 
 const scenarioStore = useScenarioStore()
+const profileStore = useProfileStore()
 const { formatCurrency, formatAge } = useFormatting()
 
 // Local editable copy of periods with split toAge fields for easier binding
@@ -212,6 +214,24 @@ const netAtRetirement = computed(() => {
   return snap.baseIncome - snap.totalExpenses
 })
 
+// Snapshot at AOW age — only relevant when retirement is before AOW
+const aowSnapshot = computed(() => {
+  const aowAge = profileStore.profile.aowAge
+  const retAge = props.scenario.retirementAge
+  // No separate AOW snapshot needed when retiring at or after AOW age
+  if (aowAge.years < retAge.years || (aowAge.years === retAge.years && aowAge.months <= retAge.months)) return null
+  return props.scenario.timeline.find(
+    s => s.age.years === aowAge.years && s.age.months === aowAge.months
+  ) ?? null
+})
+
+const incomeAtAow = computed(() => aowSnapshot.value?.baseIncome ?? null)
+const netAtAow = computed(() => {
+  const snap = aowSnapshot.value
+  if (!snap) return null
+  return snap.baseIncome - snap.totalExpenses
+})
+
 const savingsDepletedAge = computed(() => {
   const snap = props.scenario.timeline.find(s => s.cumulativeSavings <= 0)
   return snap?.age ?? null
@@ -233,26 +253,46 @@ const periodSavingsNeeded = computed(() => {
   })
 })
 
-const metrics = computed(() => [
-  {
-    label: 'Pensioenleeftijd',
-    value: formatAge(props.scenario.retirementAge),
-    class: 'text-(--ui-text-highlighted)',
-  },
-  {
-    label: 'Inkomen bij pensioen',
-    value: `${formatCurrency(incomeAtRetirement.value)} /mnd`,
-    class: 'text-green-500',
-  },
-  {
-    label: 'Uitgaven bij pensioen',
-    value: `${formatCurrency(expensesAtRetirement.value)} /mnd`,
-    class: 'text-red-500',
-  },
-  {
-    label: 'Netto bij pensioen',
-    value: `${formatCurrency(netAtRetirement.value)} /mnd`,
-    class: netAtRetirement.value >= 0 ? 'text-green-500' : 'text-red-500',
-  },
-])
+const metrics = computed(() => {
+  const aowAge = profileStore.profile.aowAge
+  const rows = [
+    {
+      label: 'Pensioenleeftijd',
+      value: formatAge(props.scenario.retirementAge),
+      class: 'text-(--ui-text-highlighted)',
+    },
+    {
+      label: 'Inkomen bij pensioen',
+      value: `${formatCurrency(incomeAtRetirement.value)} /mnd`,
+      class: 'text-green-500',
+    },
+    {
+      label: 'Uitgaven bij pensioen',
+      value: `${formatCurrency(expensesAtRetirement.value)} /mnd`,
+      class: 'text-red-500',
+    },
+    {
+      label: 'Netto bij pensioen',
+      value: `${formatCurrency(netAtRetirement.value)} /mnd`,
+      class: netAtRetirement.value >= 0 ? 'text-green-500' : 'text-red-500',
+    },
+  ]
+
+  if (incomeAtAow.value !== null) {
+    rows.push(
+      {
+        label: `Inkomen vanaf ${formatAge(aowAge)} (met AOW)`,
+        value: `${formatCurrency(incomeAtAow.value)} /mnd`,
+        class: 'text-green-500',
+      },
+      {
+        label: `Netto vanaf ${formatAge(aowAge)}`,
+        value: `${formatCurrency(netAtAow.value!)} /mnd`,
+        class: (netAtAow.value ?? 0) >= 0 ? 'text-green-500' : 'text-red-500',
+      },
+    )
+  }
+
+  return rows
+})
 </script>
